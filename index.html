@@ -19,12 +19,6 @@
       <div class="subtitle">Offline • Datos guardados en el dispositivo</div>
     </div>
   </div>
-
-  <div class="header-actions">
-    <button id="btnExport" class="btn" type="button">Exportar</button>
-    <label class="btn btn-secondary" for="importFile">Importar</label>
-    <input id="importFile" type="file" accept="application/json" hidden>
-  </div>
 </header>
 
 <nav class="tabs" role="tablist" aria-label="Pestañas">
@@ -37,7 +31,7 @@
 
 <main class="container">
 
-  <!-- TAB 1 (solo formulario; sin tabla abajo) -->
+  <!-- TAB 1 -->
   <section id="tab-slump" class="panel active" role="tabpanel">
     <div class="panel-head">
       <h2>Slump y Temperatura</h2>
@@ -237,7 +231,7 @@
           <button id="btnBorrarTodo" class="btn btn-danger" type="button">Borrar TODO</button>
         </div>
       </div>
-      <p class="hint">Recomendación: Exporta antes de borrar toda la base de datos.</p>
+      <p class="hint">Recomendación: Exporta antes de borrar toda la base de datos (si luego deseas lo añadimos).</p>
     </div>
 
     <div class="card">
@@ -287,8 +281,8 @@
   <!-- TAB 5 -->
   <section id="tab-reporte" class="panel" role="tabpanel">
     <div class="panel-head">
-      <h2>Reporte (PDF / WhatsApp)</h2>
-      <p class="muted">Reporte visual moderno (Lollipop charts) y exportación a PDF.</p>
+      <h2>Reporte (WhatsApp / PDF)</h2>
+      <p class="muted">Lollipop charts: Slump (") y Presión. Temperatura y Pernos como cards grandes.</p>
     </div>
 
     <div class="card">
@@ -306,35 +300,37 @@
           <button id="btnReporte" class="btn" type="button">Actualizar</button>
           <button id="btnReporteTodo" class="btn btn-secondary" type="button">Todo</button>
           <button id="btnPDF" class="btn btn-secondary" type="button">Exportar PDF</button>
-          <button id="btnShareImg" class="btn" type="button">Compartir (Imagen)</button>
         </div>
       </div>
+
+      <div class="kpis-2">
+        <div class="kpi-big">
+          <div class="kpi-title">Temperatura Promedio</div>
+          <div class="kpi-value" id="kpiTempProm">—</div>
+          <div class="kpi-sub muted" id="kpiTempExtra">Min — | Max —</div>
+        </div>
+
+        <div class="kpi-big">
+          <div class="kpi-title">Pernos Instalados</div>
+          <div class="kpi-value" id="kpiPernosTotal">0</div>
+          <div class="kpi-sub muted" id="kpiPernosExtra">Helicoidal 0 | Swellex 0</div>
+        </div>
+      </div>
+
       <p class="hint">
-        PDF: abre vista de impresión → “Guardar como PDF” → compartir por WhatsApp.
-        Imagen: genera un PNG listo para compartir directo.
+        En el celular: Exportar PDF abre impresión → “Guardar como PDF” → Compartir por WhatsApp.
       </p>
     </div>
 
     <div class="grid-2">
       <div class="card">
         <h3>Slump (") promedio por Labor</h3>
-        <canvas id="chartSlump" width="700" height="440"></canvas>
-      </div>
-
-      <div class="card">
-        <h3>Temperatura (°C) promedio por Labor</h3>
-        <canvas id="chartTemp" width="700" height="440"></canvas>
+        <canvas id="chartSlump" width="800" height="520"></canvas>
       </div>
 
       <div class="card">
         <h3>Presión de aire promedio por Labor</h3>
-        <canvas id="chartAire" width="700" height="440"></canvas>
-      </div>
-
-      <div class="card">
-        <h3>Pernos instalados por Labor</h3>
-        <canvas id="chartPernos" width="700" height="440"></canvas>
-        <p class="hint">Suma Helicoidal + Swellex.</p>
+        <canvas id="chartAire" width="800" height="520"></canvas>
       </div>
     </div>
 
@@ -346,7 +342,7 @@
 </main>
 
 <footer class="footer">
-  <span>CE Offline • IndexedDB • Export/Import</span>
+  <span>CE Offline • IndexedDB</span>
   <span id="offlineBadge" class="badge">Online</span>
 </footer>
 
