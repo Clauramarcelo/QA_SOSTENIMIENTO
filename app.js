@@ -1,16 +1,12 @@
-// CE Offline App - IndexedDB + Reportes + Tablas responsive tipo Cards + Badges
-
 /**********************
- * CONFIG (Rangos para badges)
- * Ajusta estos valores según tu CE real.
+ * CONFIG (ajusta rangos)
  **********************/
 const LIMITS = {
-  slump: { min: 60, max: 100 },        // mm
-  temp:  { warn: 28, bad: 35 },        // °C
-  aire:  { min: 5.5, max: 7.5 }        // presión (bar típico, ajustable)
+  slump: { min: 8, max: 11 },     // pulgadas OK (AJUSTA a tu CE)
+  temp:  { warn: 28, bad: 35 },   // °C
+  aire:  { min: 5.5, max: 7.5 }   // presión (bar típico)
 };
 
-// Helpers DOM
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
@@ -56,33 +52,73 @@ function formatNum(v){
 }
 
 /**********************
- * Badges (estado)
+ * Slump: parse pulgadas con fracciones
+ * Ej: 9 3/4", 10 1/4", 7/8", 9.75"
+ **********************/
+function parseInchFraction(input){
+  if(input === null || input === undefined) return null;
+  let s = String(input).trim();
+  if(!s) return null;
+
+  s = s.replace(/["”″]/g,'').trim();     // quitar comillas
+  s = s.replace(/\s+/g,' ');
+
+  // decimal directo
+  if(/^\d+(\.\d+)?$/.test(s)){
+    const v = Number(s);
+    return { value: v, text: `${formatNum(v)}"` };
+  }
+
+  const parts = s.split(' ');
+  let whole = 0;
+  let frac = null;
+
+  if(parts.length === 1){
+    frac = parts[0]; // "7/8"
+  } else if(parts.length === 2){
+    whole = Number(parts[0]);
+    frac = parts[1]; // "3/4"
+    if(Number.isNaN(whole)) return null;
+  } else {
+    return null;
+  }
+
+  const m = /^(\d+)\s*\/\s*(\d+)$/.exec(frac);
+  if(!m) return null;
+
+  const num = Number(m[1]);
+  const den = Number(m[2]);
+  if(!den || Number.isNaN(num) || Number.isNaN(den)) return null;
+
+  const value = whole + (num/den);
+  const text = (whole ? `${whole} ${num}/${den}` : `${num}/${den}`) + `"`;
+  return { value, text };
+}
+
+/**********************
+ * Badges
  **********************/
 function badgeChip(cls, text){
   return `<span class="badge-chip ${cls}">${esc(text)}</span>`;
 }
-
-function statusSlump(v){
-  if(v === null || v === undefined || Number.isNaN(v)) return {cls:'neutral', text:'Sin dato'};
-  if(v < LIMITS.slump.min) return {cls:'warn', text:`Bajo (${v})`};
-  if(v > LIMITS.slump.max) return {cls:'warn', text:`Alto (${v})`};
-  return {cls:'ok', text:`OK (${v})`};
+function statusSlump(inches){
+  if(inches === null || inches === undefined || Number.isNaN(inches)) return {cls:'neutral', text:'Sin dato'};
+  if(inches < LIMITS.slump.min) return {cls:'warn', text:`Bajo (${formatNum(inches)}")`};
+  if(inches > LIMITS.slump.max) return {cls:'warn', text:`Alto (${formatNum(inches)}")`};
+  return {cls:'ok', text:`OK (${formatNum(inches)}")`};
 }
-
 function statusTemp(v){
   if(v === null || v === undefined || Number.isNaN(v)) return {cls:'neutral', text:'Sin dato'};
-  if(v >= LIMITS.temp.bad) return {cls:'bad', text:`Alerta (${v}°C)`};
-  if(v >= LIMITS.temp.warn) return {cls:'warn', text:`Alta (${v}°C)`};
-  return {cls:'ok', text:`OK (${v}°C)`};
+  if(v >= LIMITS.temp.bad) return {cls:'bad', text:`Alerta (${formatNum(v)}°C)`};
+  if(v >= LIMITS.temp.warn) return {cls:'warn', text:`Alta (${formatNum(v)}°C)`};
+  return {cls:'ok', text:`OK (${formatNum(v)}°C)`};
 }
-
 function statusAire(v){
   if(v === null || v === undefined || Number.isNaN(v)) return {cls:'neutral', text:'Sin dato'};
-  if(v < LIMITS.aire.min) return {cls:'warn', text:`Baja (${v})`};
-  if(v > LIMITS.aire.max) return {cls:'warn', text:`Alta (${v})`};
-  return {cls:'ok', text:`OK (${v})`};
+  if(v < LIMITS.aire.min) return {cls:'warn', text:`Baja (${formatNum(v)})`};
+  if(v > LIMITS.aire.max) return {cls:'warn', text:`Alta (${formatNum(v)})`};
+  return {cls:'ok', text:`OK (${formatNum(v)})`};
 }
-
 function statusPernos(hel, sw){
   const total = (Number(hel)||0) + (Number(sw)||0);
   if(total <= 0) return {cls:'warn', text:'0 pernos'};
@@ -94,7 +130,7 @@ function statusPernos(hel, sw){
  * IndexedDB
  **********************/
 const DB_NAME = 'ce_qc_db';
-const DB_VER = 1;
+const DB_VER = 2; // subimos versión por cambios de schema (slumpIn/slumpText)
 let db;
 
 function openDB(){
@@ -102,6 +138,7 @@ function openDB(){
     const req = indexedDB.open(DB_NAME, DB_VER);
     req.onupgradeneeded = (e)=>{
       const db = e.target.result;
+
       const mkStore = (name) => {
         if(!db.objectStoreNames.contains(name)){
           const s = db.createObjectStore(name, { keyPath: 'id' });
@@ -163,14 +200,13 @@ async function getAllFiltered(store, desdeIso, hastaIso){
 }
 
 /**********************
- * UI Tabs
+ * Tabs
  **********************/
 function initTabs(){
   $$('.tab').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       $$('.tab').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
-
       const name = btn.dataset.tab;
       $$('.panel').forEach(p=>p.classList.remove('active'));
       $(`#tab-${name}`).classList.add('active');
@@ -182,7 +218,7 @@ function initTabs(){
 }
 
 /**********************
- * Row builder: crea TDs con data-label (para cards en móvil)
+ * Rows con data-label (cards móvil)
  **********************/
 function makeRow(cells){
   const tr = document.createElement('tr');
@@ -194,25 +230,23 @@ function makeRow(cells){
   });
   return tr;
 }
-
 function delBtn(store, id){
-  return `<button class="btn btn-danger" data-del="${store}:${id}" title="Eliminar">Eliminar</button>`;
+  return `<button class="btn btn-danger" data-del="${store}:${id}">Eliminar</button>`;
 }
 
 /**********************
  * Formularios
  **********************/
 function initForms(){
-  // defaults
-  ['#formSlump input[name=fecha]','#formResist input[name=fecha]','#formPernos input[name=fecha]', '#fDesde', '#fHasta', '#rDesde', '#rHasta']
-    .forEach(sel=>{ const el=$(sel); if(el) el.value = todayISO(); });
+  ['#formSlump input[name=fecha]','#formResist input[name=fecha]','#formPernos input[name=fecha]',
+   '#fDesde', '#fHasta', '#rDesde', '#rHasta']
+   .forEach(sel=>{ const el=$(sel); if(el) el.value = todayISO(); });
 
-  // pernos
+  // Pernos: habilitar cantidades
   const chkHel = $('#chkHel');
   const chkSw = $('#chkSw');
   const cantHel = $('#cantHel');
   const cantSw = $('#cantSw');
-
   const sync = ()=>{
     cantHel.disabled = !chkHel.checked;
     cantSw.disabled = !chkSw.checked;
@@ -222,16 +256,24 @@ function initForms(){
   chkHel.addEventListener('change', sync);
   chkSw.addEventListener('change', sync);
 
-  // Slump
+  // Slump (pulgadas)
   $('#formSlump').addEventListener('submit', async (e)=>{
     e.preventDefault();
     const fd = new FormData(e.target);
+
+    const parsed = parseInchFraction(fd.get('slumpIn'));
+    if(!parsed){
+      setStatus($('#slumpStatus'), '⚠️ Slump inválido. Ej: 9 3/4" o 10 1/4"', 4000);
+      return;
+    }
+
     const rec = {
       fecha: fd.get('fecha'),
       hora: fd.get('horaSlump'),
       labor: (fd.get('labor')||'').trim(),
       nivel: (fd.get('nivel')||'').trim(),
-      slump: Number(fd.get('slump')),
+      slumpText: parsed.text,
+      slumpIn: parsed.value,
       temp: Number(fd.get('temp')),
       presionAire: Number(fd.get('presionAire')),
       mixerHS: (fd.get('mixerHS')||'').trim(),
@@ -239,17 +281,19 @@ function initForms(){
       obs: (fd.get('obs')||'').trim(),
       createdAt: new Date().toISOString()
     };
+
     await addRecord('slump', rec);
     setStatus($('#slumpStatus'), '✅ Registro guardado.');
+
     e.target.reset();
     e.target.querySelector('input[name=fecha]').value = todayISO();
-    refreshRecent();
   });
 
   // Resist
   $('#formResist').addEventListener('submit', async (e)=>{
     e.preventDefault();
     const fd = new FormData(e.target);
+
     const rec = {
       fecha: fd.get('fecha'),
       hora: fd.get('hora'),
@@ -260,11 +304,12 @@ function initForms(){
       obs: (fd.get('obs')||'').trim(),
       createdAt: new Date().toISOString()
     };
+
     await addRecord('resist', rec);
     setStatus($('#resistStatus'), '✅ Registro guardado.');
+
     e.target.reset();
     e.target.querySelector('input[name=fecha]').value = todayISO();
-    refreshRecent();
   });
 
   // Pernos
@@ -290,108 +335,54 @@ function initForms(){
       obs: (fd.get('obs')||'').trim(),
       createdAt: new Date().toISOString()
     };
+
     await addRecord('pernos', rec);
     setStatus($('#pernosStatus'), '✅ Registro guardado.');
+
     e.target.reset();
     e.target.querySelector('input[name=fecha]').value = todayISO();
     chkHel.checked=false; chkSw.checked=false;
     cantHel.value=0; cantSw.value=0;
     cantHel.disabled=true; cantSw.disabled=true;
-    refreshRecent();
   });
 
-  // filtros BD
+  // Filtro BD
   $('#btnFiltrar').addEventListener('click', refreshDBTables);
   $('#btnLimpiarFiltro').addEventListener('click', ()=>{
     $('#fDesde').value=''; $('#fHasta').value='';
     refreshDBTables();
   });
 
-  // borrar todo
+  // Borrar todo
   $('#btnBorrarTodo').addEventListener('click', async ()=>{
-    const ok = confirm('¿Seguro que deseas borrar TODO? No se puede deshacer. Recomendación: Exporta antes.');
+    const ok = confirm('¿Seguro que deseas borrar TODO? No se puede deshacer. Exporta antes.');
     if(!ok) return;
     await clearStore('slump');
     await clearStore('resist');
     await clearStore('pernos');
-    refreshRecent();
     refreshDBTables();
     buildReport();
     alert('Listo: Base de datos borrada.');
   });
 
-  // reporte
+  // Reporte botones
   $('#btnReporte').addEventListener('click', buildReport);
   $('#btnReporteTodo').addEventListener('click', ()=>{
     $('#rDesde').value=''; $('#rHasta').value='';
     buildReport();
   });
 
-  // export/import
+  $('#btnPDF').addEventListener('click', exportReportPDF);
+  $('#btnShareImg').addEventListener('click', shareReportImage);
+
+  // Export/Import global
   $('#btnExport').addEventListener('click', exportJSON);
   $('#importFile').addEventListener('change', importJSON);
 }
 
 /**********************
- * Tablas (Recientes y BD)
+ * BD Tables
  **********************/
-async function refreshRecent(){
-  const [sl, re, pe] = await Promise.all([getAll('slump'), getAll('resist'), getAll('pernos')]);
-
-  const last = (arr)=> arr.slice().sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||'')).slice(0,8);
-
-  // Slump recientes
-  const slb = $('#slumpRecent tbody'); slb.innerHTML='';
-  last(sl).forEach(r=>{
-    const s1 = statusSlump(Number(r.slump));
-    const s2 = statusTemp(Number(r.temp));
-    const s3 = statusAire(Number(r.presionAire));
-
-    const estado = badgeChip(s1.cls, s1.text) + ' ' + badgeChip(s2.cls, s2.text) + ' ' + badgeChip(s3.cls, s3.text);
-
-    slb.appendChild(makeRow([
-      {label:'Fecha', html: esc(r.fecha)},
-      {label:'Hora', html: esc(r.hora)},
-      {label:'Labor', html: esc(r.labor)},
-      {label:'Nivel', html: esc(r.nivel)},
-      {label:'Slump', html: `${formatNum(r.slump)} mm`},
-      {label:'T°', html: `${formatNum(r.temp)} °C`},
-      {label:'Presión', html: `${formatNum(r.presionAire)}`},
-      {label:'Estado', html: estado}
-    ]));
-  });
-
-  // Resist recientes
-  const reb = $('#resistRecent tbody'); reb.innerHTML='';
-  last(re).forEach(r=>{
-    reb.appendChild(makeRow([
-      {label:'Fecha', html: esc(r.fecha)},
-      {label:'Hora', html: esc(r.hora)},
-      {label:'Labor', html: esc(r.labor)},
-      {label:'Nivel', html: esc(r.nivel)},
-      {label:'Edad', html: esc(r.edad)},
-      {label:'MPa', html: formatNum(r.resistencia)}
-    ]));
-  });
-
-  // Pernos recientes
-  const peb = $('#pernosRecent tbody'); peb.innerHTML='';
-  last(pe).forEach(r=>{
-    const st = statusPernos(r.helicoidal, r.swellex);
-    const estado = badgeChip(st.cls, st.text);
-
-    peb.appendChild(makeRow([
-      {label:'Fecha', html: esc(r.fecha)},
-      {label:'Hora', html: esc(r.hora)},
-      {label:'Labor', html: esc(r.labor)},
-      {label:'Nivel', html: esc(r.nivel)},
-      {label:'Helicoidal', html: formatNum(r.helicoidal || 0)},
-      {label:'Swellex', html: formatNum(r.swellex || 0)},
-      {label:'Estado', html: estado}
-    ]));
-  });
-}
-
 async function refreshDBTables(){
   const desde = $('#fDesde').value || null;
   const hasta = $('#fHasta').value || null;
@@ -402,22 +393,22 @@ async function refreshDBTables(){
     getAllFiltered('pernos', desde, hasta)
   ]);
 
-  // Slump BD
+  // Slump
   const slb = $('#tblSlump tbody'); slb.innerHTML='';
   sl.forEach(r=>{
-    const s1 = statusSlump(Number(r.slump));
+    const s1 = statusSlump(Number(r.slumpIn));
     const s2 = statusTemp(Number(r.temp));
     const s3 = statusAire(Number(r.presionAire));
-    const estado = badgeChip(s1.cls, s1.text) + ' ' + badgeChip(s2.cls, s2.text) + ' ' + badgeChip(s3.cls, s3.text);
+    const estado = badgeChip(s1.cls, s1.text) + badgeChip(s2.cls, s2.text) + badgeChip(s3.cls, s3.text);
 
     slb.appendChild(makeRow([
       {label:'Fecha', html: esc(r.fecha)},
       {label:'Hora', html: esc(r.hora)},
       {label:'Labor', html: esc(r.labor)},
       {label:'Nivel', html: esc(r.nivel)},
-      {label:'Slump', html: `${formatNum(r.slump)} mm`},
+      {label:'Slump', html: esc(r.slumpText || `${formatNum(r.slumpIn)}"` )},
       {label:'T°', html: `${formatNum(r.temp)} °C`},
-      {label:'Presión', html: `${formatNum(r.presionAire)}`},
+      {label:'Presión', html: formatNum(r.presionAire)},
       {label:'Mixer/HS', html: esc(r.mixerHS)},
       {label:'H_LL', html: esc(r.hll)},
       {label:'Estado', html: estado},
@@ -425,7 +416,7 @@ async function refreshDBTables(){
     ]));
   });
 
-  // Resist BD
+  // Resist
   const reb = $('#tblResist tbody'); reb.innerHTML='';
   re.forEach(r=>{
     reb.appendChild(makeRow([
@@ -439,12 +430,9 @@ async function refreshDBTables(){
     ]));
   });
 
-  // Pernos BD
+  // Pernos
   const peb = $('#tblPernos tbody'); peb.innerHTML='';
   pe.forEach(r=>{
-    const st = statusPernos(r.helicoidal, r.swellex);
-    const estado = badgeChip(st.cls, st.text);
-
     peb.appendChild(makeRow([
       {label:'Fecha', html: esc(r.fecha)},
       {label:'Hora', html: esc(r.hora)},
@@ -452,12 +440,10 @@ async function refreshDBTables(){
       {label:'Nivel', html: esc(r.nivel)},
       {label:'Helicoidal', html: formatNum(r.helicoidal || 0)},
       {label:'Swellex', html: formatNum(r.swellex || 0)},
-      {label:'Estado', html: estado},
       {label:'Acción', html: delBtn('pernos', r.id)}
     ]));
   });
 
-  // evento eliminar
   $$('[data-del]').forEach(b=>{
     b.addEventListener('click', async ()=>{
       const [store,id] = b.dataset.del.split(':');
@@ -465,14 +451,13 @@ async function refreshDBTables(){
       if(!ok) return;
       await deleteRecord(store, id);
       refreshDBTables();
-      refreshRecent();
       buildReport();
     });
   });
 }
 
 /**********************
- * Export / Import
+ * Export / Import JSON
  **********************/
 async function exportJSON(){
   const data = {
@@ -487,8 +472,7 @@ async function exportJSON(){
   a.href = URL.createObjectURL(blob);
   a.download = `CE_backup_${todayISO()}.json`;
   document.body.appendChild(a);
-  a.click();
-  a.remove();
+  a.click(); a.remove();
 }
 
 async function importJSON(e){
@@ -498,7 +482,7 @@ async function importJSON(e){
   let data;
   try{ data = JSON.parse(text); }catch{ alert('Archivo inválido.'); return; }
 
-  const ok = confirm('Importar fusionará datos con los existentes (no borra). ¿Continuar?');
+  const ok = confirm('Importar fusionará datos (no borra). ¿Continuar?');
   if(!ok) return;
 
   const importStore = async (name, rows)=>{
@@ -516,13 +500,12 @@ async function importJSON(e){
 
   alert('Importación completada.');
   e.target.value='';
-  refreshRecent();
   refreshDBTables();
   buildReport();
 }
 
 /**********************
- * Reporte y gráficos (tema claro + naranja)
+ * Reporte: Lollipop charts (modernos)
  **********************/
 function groupByLabor(rows){
   const m = new Map();
@@ -535,18 +518,7 @@ function groupByLabor(rows){
 }
 function mean(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
 function sum(arr){ return arr.reduce((a,b)=>a+b,0); }
-
-function niceNumber(maxV){
-  const exp = Math.floor(Math.log10(maxV));
-  const f = maxV / Math.pow(10, exp);
-  let nf = 1;
-  if(f<=1) nf=1; else if(f<=2) nf=2; else if(f<=5) nf=5; else nf=10;
-  return nf * Math.pow(10, exp);
-}
-function truncate(s, n){
-  s = String(s);
-  return s.length>n ? s.slice(0,n-1)+'…' : s;
-}
+function truncate(s,n){ s=String(s); return s.length>n ? s.slice(0,n-1)+'…' : s; }
 function rangoCaption(desde,hasta){
   if(!desde && !hasta) return 'Todo el historial';
   if(desde && !hasta) return `Desde ${desde}`;
@@ -554,103 +526,81 @@ function rangoCaption(desde,hasta){
   return `${desde} a ${hasta}`;
 }
 
-function drawBarChart(canvas, labels, values, opts={}){
+function drawLollipopChart(canvas, labels, values, unit, caption){
   const ctx = canvas.getContext('2d');
-
   const css = getComputedStyle(document.documentElement);
-  const BG  = (opts.bg || css.getPropertyValue('--surface').trim() || '#ffffff');
-  const TXT = (opts.text || css.getPropertyValue('--text').trim() || '#111827');
-
-  const GRID = 'rgba(17,24,39,.10)';
-  const AXIS = 'rgba(17,24,39,.18)';
-
-  const TOP = (opts.colorTop || css.getPropertyValue('--accent').trim() || '#F97316');
-  const BOT = (opts.colorBottom || css.getPropertyValue('--accent2').trim() || '#FB923C');
+  const BG = css.getPropertyValue('--surface').trim() || '#fff';
+  const TXT = css.getPropertyValue('--text').trim() || '#111827';
+  const MUT = css.getPropertyValue('--muted').trim() || '#6B7280';
+  const ACC = css.getPropertyValue('--accent').trim() || '#F97316';
 
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0,0,W,H);
-
-  const padL = 56, padR = 18, padT = 18, padB = 70;
-  const plotW = W - padL - padR;
-  const plotH = H - padT - padB;
-
   ctx.fillStyle = BG;
   ctx.fillRect(0,0,W,H);
 
-  // Ejes
-  ctx.strokeStyle = AXIS;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(padL, padT);
-  ctx.lineTo(padL, padT+plotH);
-  ctx.lineTo(padL+plotW, padT+plotH);
-  ctx.stroke();
+  // layout horizontal: categorías en vertical
+  const padL = 150;
+  const padR = 24;
+  const padT = 38;
+  const padB = 38;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
 
-  const maxV = Math.max(1, ...values);
-  const niceMax = niceNumber(maxV);
-
-  // Ticks
   ctx.font = '12px system-ui';
-  const ticks = 5;
-  for(let i=0;i<=ticks;i++){
-    const v = niceMax*(i/ticks);
-    const y = padT + plotH - (v/niceMax)*plotH;
+  ctx.fillStyle = MUT;
+  ctx.textAlign = 'left';
+  ctx.fillText(caption || '', padL, 18);
 
-    ctx.strokeStyle = GRID;
-    ctx.beginPath();
-    ctx.moveTo(padL, y);
-    ctx.lineTo(padL+plotW, y);
-    ctx.stroke();
-
-    ctx.fillStyle = 'rgba(17,24,39,.75)';
-    ctx.textAlign = 'left';
-    ctx.fillText(formatNum(v), 8, y+4);
-  }
-
-  // Barras
   const n = labels.length || 1;
-  const gap = Math.max(6, plotW * 0.03 / n);
-  const barW = (plotW - gap*(n+1)) / n;
+  const rowH = plotH / n;
+  const maxV = Math.max(1, ...values);
+
+  // grid vertical 5
+  ctx.strokeStyle = 'rgba(17,24,39,.10)';
+  for(let i=0;i<=5;i++){
+    const x = padL + (plotW*(i/5));
+    ctx.beginPath();
+    ctx.moveTo(x, padT);
+    ctx.lineTo(x, padT + plotH);
+    ctx.stroke();
+  }
 
   for(let i=0;i<n;i++){
+    const y = padT + rowH*i + rowH/2;
     const v = values[i] || 0;
-    const x = padL + gap + i*(barW+gap);
-    const h = (v/niceMax)*plotH;
-    const y = padT + plotH - h;
-
-    const g = ctx.createLinearGradient(0,y,0,y+h);
-    g.addColorStop(0, TOP);
-    g.addColorStop(1, BOT);
-    ctx.fillStyle = g;
-    ctx.fillRect(x, y, barW, h);
-
-    // valor
-    ctx.fillStyle = TXT;
-    ctx.textAlign = 'center';
-    ctx.fillText(formatNum(v), x+barW/2, Math.max(14, y-6));
+    const xVal = padL + (v/maxV) * plotW;
 
     // etiqueta
-    const label = labels[i];
-    ctx.save();
-    ctx.translate(x+barW/2, padT+plotH+52);
-    ctx.rotate(-Math.PI/6);
-    ctx.fillStyle = 'rgba(17,24,39,.78)';
-    ctx.textAlign = 'center';
-    ctx.fillText(truncate(label, 18), 0, 0);
-    ctx.restore();
-  }
+    ctx.fillStyle = TXT;
+    ctx.textAlign = 'right';
+    ctx.fillText(truncate(labels[i], 18), padL - 10, y + 4);
 
-  // caption
-  if(opts.caption){
-    ctx.fillStyle='rgba(17,24,39,.65)';
-    ctx.textAlign='left';
-    ctx.fillText(opts.caption, padL, 14);
+    // línea
+    ctx.strokeStyle = 'rgba(249,115,22,.55)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(xVal, y);
+    ctx.stroke();
+
+    // punto
+    ctx.fillStyle = ACC;
+    ctx.beginPath();
+    ctx.arc(xVal, y, 6, 0, Math.PI*2);
+    ctx.fill();
+
+    // valor
+    ctx.fillStyle = MUT;
+    ctx.textAlign = 'left';
+    ctx.fillText(`${formatNum(v)}${unit}`, Math.min(W-10, xVal + 10), y + 4);
   }
 }
 
 async function buildReport(){
   const desde = $('#rDesde').value || null;
   const hasta = $('#rHasta').value || null;
+  const caption = rangoCaption(desde, hasta);
 
   const [sl, pe] = await Promise.all([
     getAllFiltered('slump', desde, hasta),
@@ -662,50 +612,36 @@ async function buildReport(){
 
   const labores = Array.from(new Set([...gSl.keys(), ...gPe.keys()])).sort((a,b)=>a.localeCompare(b));
 
-  const slumpVals = labores.map(l => {
+  const slumpVals = labores.map(l=>{
     const rows = gSl.get(l) || [];
-    return rows.length ? mean(rows.map(r=>Number(r.slump)||0)) : 0;
+    return rows.length ? mean(rows.map(r=>Number(r.slumpIn)||0)) : 0;
   });
 
-  const tempVals = labores.map(l => {
+  const tempVals = labores.map(l=>{
     const rows = gSl.get(l) || [];
     return rows.length ? mean(rows.map(r=>Number(r.temp)||0)) : 0;
   });
 
-  const aireVals = labores.map(l => {
+  const aireVals = labores.map(l=>{
     const rows = gSl.get(l) || [];
     return rows.length ? mean(rows.map(r=>Number(r.presionAire)||0)) : 0;
   });
 
-  const pernosVals = labores.map(l => {
+  const pernosVals = labores.map(l=>{
     const rows = gPe.get(l) || [];
     return sum(rows.map(r => (Number(r.helicoidal)||0) + (Number(r.swellex)||0)));
   });
 
-  const caption = rangoCaption(desde,hasta);
+  // Dibujar moderno
+  drawLollipopChart($('#chartSlump'), labores, slumpVals, '"', caption);
+  drawLollipopChart($('#chartTemp'), labores, tempVals, '°C', caption);
+  drawLollipopChart($('#chartAire'), labores, aireVals, '', caption);
+  drawLollipopChart($('#chartPernos'), labores, pernosVals, '', caption);
 
-  // Slump & Pernos (naranja)
-  drawBarChart($('#chartSlump'), labores, slumpVals, {caption});
-  drawBarChart($('#chartPernos'), labores, pernosVals, {caption});
-
-  // Temp & Aire (gris/naranja suave, sigue paleta)
-  drawBarChart($('#chartTemp'), labores, tempVals, {
-    caption,
-    colorTop: 'rgba(107,114,128,.92)',
-    colorBottom: 'rgba(156,163,175,.82)'
-  });
-
-  drawBarChart($('#chartAire'), labores, aireVals, {
-    caption,
-    colorTop: 'rgba(249,115,22,.78)',
-    colorBottom: 'rgba(251,146,60,.62)'
-  });
-
-  // resumen
+  // Resumen
   const totalSl = sl.length;
   const totalPe = pe.reduce((acc,r)=> acc + (Number(r.helicoidal)||0) + (Number(r.swellex)||0), 0);
-
-  const promSlump = totalSl ? mean(sl.map(r=>Number(r.slump)||0)) : 0;
+  const promSlump = totalSl ? mean(sl.map(r=>Number(r.slumpIn)||0)) : 0;
   const promTemp = totalSl ? mean(sl.map(r=>Number(r.temp)||0)) : 0;
   const promAire = totalSl ? mean(sl.map(r=>Number(r.presionAire)||0)) : 0;
 
@@ -714,14 +650,171 @@ async function buildReport(){
       <li><strong>Rango:</strong> ${caption}</li>
       <li><strong>Registros Slump:</strong> ${totalSl}</li>
       <li><strong>Pernos instalados:</strong> ${formatNum(totalPe)} unid.</li>
-      <li><strong>Promedios globales:</strong> Slump ${formatNum(promSlump)} mm • T° ${formatNum(promTemp)} °C • Presión ${formatNum(promAire)}</li>
-      <li><strong>Labores consideradas:</strong> ${labores.length}</li>
+      <li><strong>Promedios globales:</strong> Slump ${formatNum(promSlump)}" • T° ${formatNum(promTemp)}°C • Presión ${formatNum(promAire)}</li>
+      <li><strong>Labores:</strong> ${labores.length}</li>
     </ul>
   `;
 }
 
 /**********************
- * Estado Offline
+ * PDF: Vista de impresión (Guardar como PDF)
+ **********************/
+function exportReportPDF(){
+  // Genera una página imprimible con los charts como imágenes
+  const desde = $('#rDesde').value || '';
+  const hasta = $('#rHasta').value || '';
+  const caption = rangoCaption(desde||null, hasta||null);
+
+  const charts = [
+    {title:'Slump (") promedio por Labor', id:'chartSlump'},
+    {title:'Temperatura (°C) promedio por Labor', id:'chartTemp'},
+    {title:'Presión de aire promedio por Labor', id:'chartAire'},
+    {title:'Pernos instalados por Labor', id:'chartPernos'}
+  ].map(c => ({
+    title: c.title,
+    dataUrl: document.getElementById(c.id).toDataURL('image/png')
+  }));
+
+  const resumen = $('#resumenReporte').innerHTML || '';
+
+  const html = `
+  <!doctype html>
+  <html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reporte CE - PDF</title>
+    <style>
+      body{ font-family: Arial, sans-serif; margin:20px; color:#111827; }
+      .head{ display:flex; justify-content:space-between; align-items:flex-start; gap:14px; }
+      .brand{ font-weight:900; font-size:18px; }
+      .tag{ padding:6px 10px; border-radius:999px; background:#F97316; color:#fff; font-weight:800; display:inline-block; }
+      .muted{ color:#6B7280; font-size:12px; }
+      .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-top:14px; }
+      .card{ border:1px solid #e5e7eb; border-radius:14px; padding:12px; }
+      img{ width:100%; height:auto; border:1px solid #e5e7eb; border-radius:12px; }
+      h2{ margin:0 0 6px; }
+      h3{ margin:0 0 10px; font-size:14px; }
+      @media print{
+        .grid{ grid-template-columns: 1fr 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="head">
+      <div>
+        <div class="brand">CE Offline - Reporte</div>
+        <div class="muted">Rango: <strong>${caption}</strong></div>
+      </div>
+      <div class="tag">PLOMO + NARANJA</div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h3>Resumen</h3>
+      ${resumen}
+    </div>
+
+    <div class="grid">
+      ${charts.map(c=>`
+        <div class="card">
+          <h3>${c.title}</h3>
+          <img src="${c.dataUrl}" />
+        </div>
+      `).join('')}
+    </div>
+
+    <script>
+      setTimeout(()=>{ window.print(); }, 450);
+    </script>
+  </body>
+  </html>
+  `;
+
+  const w = window.open('', '_blank');
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+}
+
+/**********************
+ * Compartir Imagen (PNG) listo para WhatsApp
+ **********************/
+async function shareReportImage(){
+  // compone un lienzo vertical con los 4 charts
+  const canvases = ['chartSlump','chartTemp','chartAire','chartPernos'].map(id => document.getElementById(id));
+  const title = 'CE Reporte';
+  const caption = rangoCaption($('#rDesde').value||null, $('#rHasta').value||null);
+
+  const out = document.createElement('canvas');
+  const W = 1200;
+  const pad = 30;
+  const blockH = 420;
+  const H = pad*3 + 100 + blockH*4;
+  out.width = W;
+  out.height = H;
+  const ctx = out.getContext('2d');
+
+  // fondo blanco
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0,0,W,H);
+
+  // encabezado
+  ctx.fillStyle = '#111827';
+  ctx.font = 'bold 34px Arial';
+  ctx.fillText(title, pad, 50);
+  ctx.fillStyle = '#6B7280';
+  ctx.font = '16px Arial';
+  ctx.fillText(`Rango: ${caption}`, pad, 78);
+
+  // línea naranja
+  ctx.strokeStyle = '#F97316';
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(pad, 92);
+  ctx.lineTo(W-pad, 92);
+  ctx.stroke();
+
+  // pegar charts
+  let y = 110;
+  for(const c of canvases){
+    // escalar cada canvas al ancho
+    const img = new Image();
+    img.src = c.toDataURL('image/png');
+    await new Promise(res=>{ img.onload = res; });
+
+    const targetW = W - pad*2;
+    const ratio = img.height / img.width;
+    const targetH = Math.round(targetW * ratio);
+
+    ctx.drawImage(img, pad, y, targetW, targetH);
+    y += targetH + pad;
+  }
+
+  // export blob
+  const blob = await new Promise(res=> out.toBlob(res, 'image/png', 0.95));
+  const file = new File([blob], `CE_Reporte_${todayISO()}.png`, {type:'image/png'});
+
+  // share si el navegador lo soporta
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    await navigator.share({
+      title: 'Reporte CE',
+      text: `Reporte CE (${caption})`,
+      files: [file]
+    });
+  } else {
+    // fallback: descargar
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = file.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    alert('Se descargó la imagen. Luego la puedes enviar por WhatsApp.');
+  }
+}
+
+/**********************
+ * Online/offline badge
  **********************/
 function initOfflineBadge(){
   const badge = $('#offlineBadge');
@@ -744,7 +837,6 @@ function initOfflineBadge(){
   initTabs();
   initForms();
   initOfflineBadge();
-  await refreshRecent();
   await refreshDBTables();
   await buildReport();
 })();
