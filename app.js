@@ -1,10 +1,8 @@
 /**********************
- * CONFIG (ajusta rangos)
+ * CONFIG (ajusta rangos si deseas)
  **********************/
 const LIMITS = {
-  slump: { min: 8, max: 11 },     // pulgadas OK (AJUSTA a tu CE)
-  temp:  { warn: 28, bad: 35 },   // °C
-  aire:  { min: 5.5, max: 7.5 }   // presión (bar típico)
+  slump: { min: 8, max: 11 },     // pulgadas OK (ajusta según tu CE)
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -51,16 +49,26 @@ function formatNum(v){
   return (Math.round(v*100)/100).toFixed(2).replace(/\.00$/,'');
 }
 
+function mean(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+function sum(arr){ return arr.reduce((a,b)=>a+b,0); }
+function truncate(s,n){ s=String(s||''); return s.length>n ? s.slice(0,n-1)+'…' : s; }
+
+function rangoCaption(desde,hasta){
+  if(!desde && !hasta) return 'Todo el historial';
+  if(desde && !hasta) return `Desde ${desde}`;
+  if(!desde && hasta) return `Hasta ${hasta}`;
+  return `${desde} a ${hasta}`;
+}
+
 /**********************
- * Slump: parse pulgadas con fracciones
- * Ej: 9 3/4", 10 1/4", 7/8", 9.75"
+ * Slump: pulgadas con fracciones
  **********************/
 function parseInchFraction(input){
   if(input === null || input === undefined) return null;
   let s = String(input).trim();
   if(!s) return null;
 
-  s = s.replace(/["”″]/g,'').trim();     // quitar comillas
+  s = s.replace(/["”″]/g,'').trim(); // quitar comillas
   s = s.replace(/\s+/g,' ');
 
   // decimal directo
@@ -69,26 +77,24 @@ function parseInchFraction(input){
     return { value: v, text: `${formatNum(v)}"` };
   }
 
+  // "a b/c" o "b/c"
   const parts = s.split(' ');
-  let whole = 0;
-  let frac = null;
+  let whole = 0, frac = null;
 
   if(parts.length === 1){
-    frac = parts[0]; // "7/8"
+    frac = parts[0];
   } else if(parts.length === 2){
     whole = Number(parts[0]);
-    frac = parts[1]; // "3/4"
+    frac = parts[1];
     if(Number.isNaN(whole)) return null;
-  } else {
-    return null;
-  }
+  } else return null;
 
   const m = /^(\d+)\s*\/\s*(\d+)$/.exec(frac);
   if(!m) return null;
 
   const num = Number(m[1]);
   const den = Number(m[2]);
-  if(!den || Number.isNaN(num) || Number.isNaN(den)) return null;
+  if(!den) return null;
 
   const value = whole + (num/den);
   const text = (whole ? `${whole} ${num}/${den}` : `${num}/${den}`) + `"`;
@@ -96,41 +102,10 @@ function parseInchFraction(input){
 }
 
 /**********************
- * Badges
- **********************/
-function badgeChip(cls, text){
-  return `<span class="badge-chip ${cls}">${esc(text)}</span>`;
-}
-function statusSlump(inches){
-  if(inches === null || inches === undefined || Number.isNaN(inches)) return {cls:'neutral', text:'Sin dato'};
-  if(inches < LIMITS.slump.min) return {cls:'warn', text:`Bajo (${formatNum(inches)}")`};
-  if(inches > LIMITS.slump.max) return {cls:'warn', text:`Alto (${formatNum(inches)}")`};
-  return {cls:'ok', text:`OK (${formatNum(inches)}")`};
-}
-function statusTemp(v){
-  if(v === null || v === undefined || Number.isNaN(v)) return {cls:'neutral', text:'Sin dato'};
-  if(v >= LIMITS.temp.bad) return {cls:'bad', text:`Alerta (${formatNum(v)}°C)`};
-  if(v >= LIMITS.temp.warn) return {cls:'warn', text:`Alta (${formatNum(v)}°C)`};
-  return {cls:'ok', text:`OK (${formatNum(v)}°C)`};
-}
-function statusAire(v){
-  if(v === null || v === undefined || Number.isNaN(v)) return {cls:'neutral', text:'Sin dato'};
-  if(v < LIMITS.aire.min) return {cls:'warn', text:`Baja (${formatNum(v)})`};
-  if(v > LIMITS.aire.max) return {cls:'warn', text:`Alta (${formatNum(v)})`};
-  return {cls:'ok', text:`OK (${formatNum(v)})`};
-}
-function statusPernos(hel, sw){
-  const total = (Number(hel)||0) + (Number(sw)||0);
-  if(total <= 0) return {cls:'warn', text:'0 pernos'};
-  if(total < 5) return {cls:'neutral', text:`Pocos (${total})`};
-  return {cls:'ok', text:`OK (${total})`};
-}
-
-/**********************
  * IndexedDB
  **********************/
 const DB_NAME = 'ce_qc_db';
-const DB_VER = 2; // subimos versión por cambios de schema (slumpIn/slumpText)
+const DB_VER = 2; // slumpIn/slumpText
 let db;
 
 function openDB(){
@@ -146,6 +121,7 @@ function openDB(){
           s.createIndex('labor','labor',{unique:false});
         }
       };
+
       mkStore('slump');
       mkStore('resist');
       mkStore('pernos');
@@ -256,7 +232,7 @@ function initForms(){
   chkHel.addEventListener('change', sync);
   chkSw.addEventListener('change', sync);
 
-  // Slump (pulgadas)
+  // Slump
   $('#formSlump').addEventListener('submit', async (e)=>{
     e.preventDefault();
     const fd = new FormData(e.target);
@@ -355,7 +331,7 @@ function initForms(){
 
   // Borrar todo
   $('#btnBorrarTodo').addEventListener('click', async ()=>{
-    const ok = confirm('¿Seguro que deseas borrar TODO? No se puede deshacer. Exporta antes.');
+    const ok = confirm('¿Seguro que deseas borrar TODO? No se puede deshacer.');
     if(!ok) return;
     await clearStore('slump');
     await clearStore('resist');
@@ -365,19 +341,15 @@ function initForms(){
     alert('Listo: Base de datos borrada.');
   });
 
-  // Reporte botones
+  // Reporte
   $('#btnReporte').addEventListener('click', buildReport);
   $('#btnReporteTodo').addEventListener('click', ()=>{
     $('#rDesde').value=''; $('#rHasta').value='';
     buildReport();
   });
 
+  // ✅ PDF (ahora sí hace acción)
   $('#btnPDF').addEventListener('click', exportReportPDF);
-  $('#btnShareImg').addEventListener('click', shareReportImage);
-
-  // Export/Import global
-  $('#btnExport').addEventListener('click', exportJSON);
-  $('#importFile').addEventListener('change', importJSON);
 }
 
 /**********************
@@ -396,11 +368,6 @@ async function refreshDBTables(){
   // Slump
   const slb = $('#tblSlump tbody'); slb.innerHTML='';
   sl.forEach(r=>{
-    const s1 = statusSlump(Number(r.slumpIn));
-    const s2 = statusTemp(Number(r.temp));
-    const s3 = statusAire(Number(r.presionAire));
-    const estado = badgeChip(s1.cls, s1.text) + badgeChip(s2.cls, s2.text) + badgeChip(s3.cls, s3.text);
-
     slb.appendChild(makeRow([
       {label:'Fecha', html: esc(r.fecha)},
       {label:'Hora', html: esc(r.hora)},
@@ -411,7 +378,6 @@ async function refreshDBTables(){
       {label:'Presión', html: formatNum(r.presionAire)},
       {label:'Mixer/HS', html: esc(r.mixerHS)},
       {label:'H_LL', html: esc(r.hll)},
-      {label:'Estado', html: estado},
       {label:'Acción', html: delBtn('slump', r.id)}
     ]));
   });
@@ -457,55 +423,8 @@ async function refreshDBTables(){
 }
 
 /**********************
- * Export / Import JSON
- **********************/
-async function exportJSON(){
-  const data = {
-    exportedAt: new Date().toISOString(),
-    app: 'CE Offline',
-    slump: await getAll('slump'),
-    resist: await getAll('resist'),
-    pernos: await getAll('pernos')
-  };
-  const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `CE_backup_${todayISO()}.json`;
-  document.body.appendChild(a);
-  a.click(); a.remove();
-}
-
-async function importJSON(e){
-  const file = e.target.files?.[0];
-  if(!file) return;
-  const text = await file.text();
-  let data;
-  try{ data = JSON.parse(text); }catch{ alert('Archivo inválido.'); return; }
-
-  const ok = confirm('Importar fusionará datos (no borra). ¿Continuar?');
-  if(!ok) return;
-
-  const importStore = async (name, rows)=>{
-    if(!Array.isArray(rows)) return;
-    for(const r of rows){
-      const rec = {...r};
-      rec.id = (rec.id ? (rec.id + '_imp_' + Math.random().toString(16).slice(2)) : uid());
-      try{ await addRecord(name, rec); }catch(_){}
-    }
-  };
-
-  await importStore('slump', data.slump);
-  await importStore('resist', data.resist);
-  await importStore('pernos', data.pernos);
-
-  alert('Importación completada.');
-  e.target.value='';
-  refreshDBTables();
-  buildReport();
-}
-
-/**********************
- * Reporte: Lollipop charts (modernos)
+ * Reporte: Lollipop SOLO Slump y Presión
+ * + Temperatura y Pernos como KPIs grandes
  **********************/
 function groupByLabor(rows){
   const m = new Map();
@@ -515,15 +434,6 @@ function groupByLabor(rows){
     m.get(key).push(r);
   }
   return m;
-}
-function mean(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
-function sum(arr){ return arr.reduce((a,b)=>a+b,0); }
-function truncate(s,n){ s=String(s); return s.length>n ? s.slice(0,n-1)+'…' : s; }
-function rangoCaption(desde,hasta){
-  if(!desde && !hasta) return 'Todo el historial';
-  if(desde && !hasta) return `Desde ${desde}`;
-  if(!desde && hasta) return `Hasta ${hasta}`;
-  return `${desde} a ${hasta}`;
 }
 
 function drawLollipopChart(canvas, labels, values, unit, caption){
@@ -539,27 +449,23 @@ function drawLollipopChart(canvas, labels, values, unit, caption){
   ctx.fillStyle = BG;
   ctx.fillRect(0,0,W,H);
 
-  // layout horizontal: categorías en vertical
-  const padL = 150;
-  const padR = 24;
-  const padT = 38;
-  const padB = 38;
+  const padL = 190, padR = 24, padT = 44, padB = 30;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
 
   ctx.font = '12px system-ui';
   ctx.fillStyle = MUT;
   ctx.textAlign = 'left';
-  ctx.fillText(caption || '', padL, 18);
+  ctx.fillText(caption || '', padL, 20);
 
-  const n = labels.length || 1;
+  const n = Math.max(1, labels.length);
   const rowH = plotH / n;
   const maxV = Math.max(1, ...values);
 
-  // grid vertical 5
   ctx.strokeStyle = 'rgba(17,24,39,.10)';
+  ctx.lineWidth = 1;
   for(let i=0;i<=5;i++){
-    const x = padL + (plotW*(i/5));
+    const x = padL + plotW*(i/5);
     ctx.beginPath();
     ctx.moveTo(x, padT);
     ctx.lineTo(x, padT + plotH);
@@ -571,12 +477,11 @@ function drawLollipopChart(canvas, labels, values, unit, caption){
     const v = values[i] || 0;
     const xVal = padL + (v/maxV) * plotW;
 
-    // etiqueta
     ctx.fillStyle = TXT;
+    ctx.font = '12px system-ui';
     ctx.textAlign = 'right';
-    ctx.fillText(truncate(labels[i], 18), padL - 10, y + 4);
+    ctx.fillText(truncate(labels[i], 22), padL - 10, y + 4);
 
-    // línea
     ctx.strokeStyle = 'rgba(249,115,22,.55)';
     ctx.lineWidth = 3;
     ctx.beginPath();
@@ -584,13 +489,11 @@ function drawLollipopChart(canvas, labels, values, unit, caption){
     ctx.lineTo(xVal, y);
     ctx.stroke();
 
-    // punto
     ctx.fillStyle = ACC;
     ctx.beginPath();
     ctx.arc(xVal, y, 6, 0, Math.PI*2);
     ctx.fill();
 
-    // valor
     ctx.fillStyle = MUT;
     ctx.textAlign = 'left';
     ctx.fillText(`${formatNum(v)}${unit}`, Math.min(W-10, xVal + 10), y + 4);
@@ -607,19 +510,13 @@ async function buildReport(){
     getAllFiltered('pernos', desde, hasta)
   ]);
 
+  // Métricas por labor
   const gSl = groupByLabor(sl);
-  const gPe = groupByLabor(pe);
-
-  const labores = Array.from(new Set([...gSl.keys(), ...gPe.keys()])).sort((a,b)=>a.localeCompare(b));
+  const labores = Array.from(gSl.keys()).sort((a,b)=>a.localeCompare(b));
 
   const slumpVals = labores.map(l=>{
     const rows = gSl.get(l) || [];
     return rows.length ? mean(rows.map(r=>Number(r.slumpIn)||0)) : 0;
-  });
-
-  const tempVals = labores.map(l=>{
-    const rows = gSl.get(l) || [];
-    return rows.length ? mean(rows.map(r=>Number(r.temp)||0)) : 0;
   });
 
   const aireVals = labores.map(l=>{
@@ -627,53 +524,68 @@ async function buildReport(){
     return rows.length ? mean(rows.map(r=>Number(r.presionAire)||0)) : 0;
   });
 
-  const pernosVals = labores.map(l=>{
-    const rows = gPe.get(l) || [];
-    return sum(rows.map(r => (Number(r.helicoidal)||0) + (Number(r.swellex)||0)));
-  });
-
-  // Dibujar moderno
+  // Dibujar SOLO 2 gráficos
   drawLollipopChart($('#chartSlump'), labores, slumpVals, '"', caption);
-  drawLollipopChart($('#chartTemp'), labores, tempVals, '°C', caption);
   drawLollipopChart($('#chartAire'), labores, aireVals, '', caption);
-  drawLollipopChart($('#chartPernos'), labores, pernosVals, '', caption);
+
+  // KPI Temperatura (prom, min, max)
+  const temps = sl.map(r=>Number(r.temp)).filter(v=>!Number.isNaN(v));
+  const tProm = temps.length ? mean(temps) : 0;
+  const tMin = temps.length ? Math.min(...temps) : 0;
+  const tMax = temps.length ? Math.max(...temps) : 0;
+
+  $('#kpiTempProm').textContent = temps.length ? `${formatNum(tProm)}°C` : '—';
+  $('#kpiTempExtra').textContent = temps.length ? `Min ${formatNum(tMin)}°C | Max ${formatNum(tMax)}°C` : 'Min — | Max —';
+
+  // KPI Pernos (total + desglose)
+  const helTot = pe.reduce((a,r)=> a + (Number(r.helicoidal)||0), 0);
+  const swTot  = pe.reduce((a,r)=> a + (Number(r.swellex)||0), 0);
+  const totalP = helTot + swTot;
+
+  $('#kpiPernosTotal').textContent = totalP;
+  $('#kpiPernosExtra').textContent = `Helicoidal ${helTot} | Swellex ${swTot}`;
 
   // Resumen
-  const totalSl = sl.length;
-  const totalPe = pe.reduce((acc,r)=> acc + (Number(r.helicoidal)||0) + (Number(r.swellex)||0), 0);
-  const promSlump = totalSl ? mean(sl.map(r=>Number(r.slumpIn)||0)) : 0;
-  const promTemp = totalSl ? mean(sl.map(r=>Number(r.temp)||0)) : 0;
-  const promAire = totalSl ? mean(sl.map(r=>Number(r.presionAire)||0)) : 0;
+  const slumpPromGlobal = sl.length ? mean(sl.map(r=>Number(r.slumpIn)||0)) : 0;
+  const airePromGlobal  = sl.length ? mean(sl.map(r=>Number(r.presionAire)||0)) : 0;
 
   $('#resumenReporte').innerHTML = `
     <ul>
       <li><strong>Rango:</strong> ${caption}</li>
-      <li><strong>Registros Slump:</strong> ${totalSl}</li>
-      <li><strong>Pernos instalados:</strong> ${formatNum(totalPe)} unid.</li>
-      <li><strong>Promedios globales:</strong> Slump ${formatNum(promSlump)}" • T° ${formatNum(promTemp)}°C • Presión ${formatNum(promAire)}</li>
-      <li><strong>Labores:</strong> ${labores.length}</li>
+      <li><strong>Registros Slump:</strong> ${sl.length}</li>
+      <li><strong>Slump prom. global:</strong> ${formatNum(slumpPromGlobal)}"</li>
+      <li><strong>Presión prom. global:</strong> ${formatNum(airePromGlobal)}</li>
+      <li><strong>Temperatura prom. global:</strong> ${temps.length ? formatNum(tProm) + '°C' : '—'}</li>
+      <li><strong>Pernos total:</strong> ${totalP} (Hel ${helTot} / Sw ${swTot})</li>
+      <li><strong>Labores (Slump):</strong> ${labores.length}</li>
     </ul>
   `;
 }
 
 /**********************
- * PDF: Vista de impresión (Guardar como PDF)
+ * PDF (sí funciona): abre vista imprimible y dispara imprimir
  **********************/
 function exportReportPDF(){
-  // Genera una página imprimible con los charts como imágenes
+  // Si el popup se bloquea, avisar
+  const w = window.open('', '_blank');
+  if(!w){
+    alert('El navegador bloqueó la ventana del PDF. Permite ventanas emergentes (pop-ups) y vuelve a intentar.');
+    return;
+  }
+
   const desde = $('#rDesde').value || '';
   const hasta = $('#rHasta').value || '';
   const caption = rangoCaption(desde||null, hasta||null);
 
-  const charts = [
-    {title:'Slump (") promedio por Labor', id:'chartSlump'},
-    {title:'Temperatura (°C) promedio por Labor', id:'chartTemp'},
-    {title:'Presión de aire promedio por Labor', id:'chartAire'},
-    {title:'Pernos instalados por Labor', id:'chartPernos'}
-  ].map(c => ({
-    title: c.title,
-    dataUrl: document.getElementById(c.id).toDataURL('image/png')
-  }));
+  // Charts como imágenes
+  const chartSlumpUrl = document.getElementById('chartSlump').toDataURL('image/png');
+  const chartAireUrl  = document.getElementById('chartAire').toDataURL('image/png');
+
+  // KPI textos
+  const tProm = esc($('#kpiTempProm').textContent || '—');
+  const tExtra = esc($('#kpiTempExtra').textContent || '—');
+  const pTot = esc($('#kpiPernosTotal').textContent || '0');
+  const pExtra = esc($('#kpiPernosExtra').textContent || '—');
 
   const resumen = $('#resumenReporte').innerHTML || '';
 
@@ -692,12 +604,13 @@ function exportReportPDF(){
       .muted{ color:#6B7280; font-size:12px; }
       .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-top:14px; }
       .card{ border:1px solid #e5e7eb; border-radius:14px; padding:12px; }
+      .kpis{ display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-top:14px; }
+      .kpi{ background:#fff7ed; border:1px solid #fed7aa; border-radius:14px; padding:12px; }
+      .kpi-title{ font-weight:800; font-size:12px; color:#7c2d12; }
+      .kpi-value{ font-weight:900; font-size:26px; margin-top:6px; }
       img{ width:100%; height:auto; border:1px solid #e5e7eb; border-radius:12px; }
-      h2{ margin:0 0 6px; }
       h3{ margin:0 0 10px; font-size:14px; }
-      @media print{
-        .grid{ grid-template-columns: 1fr 1fr; }
-      }
+      @media print{ .grid{ grid-template-columns: 1fr; } }
     </style>
   </head>
   <body>
@@ -706,7 +619,20 @@ function exportReportPDF(){
         <div class="brand">CE Offline - Reporte</div>
         <div class="muted">Rango: <strong>${caption}</strong></div>
       </div>
-      <div class="tag">PLOMO + NARANJA</div>
+      <div class="tag">Plomo + Naranja</div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi">
+        <div class="kpi-title">Temperatura Promedio</div>
+        <div class="kpi-value">${tProm}</div>
+        <div class="muted">${tExtra}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-title">Pernos Instalados</div>
+        <div class="kpi-value">${pTot}</div>
+        <div class="muted">${pExtra}</div>
+      </div>
     </div>
 
     <div class="card" style="margin-top:14px">
@@ -715,102 +641,26 @@ function exportReportPDF(){
     </div>
 
     <div class="grid">
-      ${charts.map(c=>`
-        <div class="card">
-          <h3>${c.title}</h3>
-          <img src="${c.dataUrl}" />
-        </div>
-      `).join('')}
+      <div class="card">
+        <h3>Slump (") promedio por Labor</h3>
+        <img src="${chartSlumpUrl}" />
+      </div>
+      <div class="card">
+        <h3>Presión de aire promedio por Labor</h3>
+        <img src="${chartAireUrl}" />
+      </div>
     </div>
 
     <script>
-      setTimeout(()=>{ window.print(); }, 450);
+      setTimeout(()=>window.print(), 450);
     </script>
   </body>
   </html>
   `;
 
-  const w = window.open('', '_blank');
   w.document.open();
   w.document.write(html);
   w.document.close();
-}
-
-/**********************
- * Compartir Imagen (PNG) listo para WhatsApp
- **********************/
-async function shareReportImage(){
-  // compone un lienzo vertical con los 4 charts
-  const canvases = ['chartSlump','chartTemp','chartAire','chartPernos'].map(id => document.getElementById(id));
-  const title = 'CE Reporte';
-  const caption = rangoCaption($('#rDesde').value||null, $('#rHasta').value||null);
-
-  const out = document.createElement('canvas');
-  const W = 1200;
-  const pad = 30;
-  const blockH = 420;
-  const H = pad*3 + 100 + blockH*4;
-  out.width = W;
-  out.height = H;
-  const ctx = out.getContext('2d');
-
-  // fondo blanco
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0,0,W,H);
-
-  // encabezado
-  ctx.fillStyle = '#111827';
-  ctx.font = 'bold 34px Arial';
-  ctx.fillText(title, pad, 50);
-  ctx.fillStyle = '#6B7280';
-  ctx.font = '16px Arial';
-  ctx.fillText(`Rango: ${caption}`, pad, 78);
-
-  // línea naranja
-  ctx.strokeStyle = '#F97316';
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.moveTo(pad, 92);
-  ctx.lineTo(W-pad, 92);
-  ctx.stroke();
-
-  // pegar charts
-  let y = 110;
-  for(const c of canvases){
-    // escalar cada canvas al ancho
-    const img = new Image();
-    img.src = c.toDataURL('image/png');
-    await new Promise(res=>{ img.onload = res; });
-
-    const targetW = W - pad*2;
-    const ratio = img.height / img.width;
-    const targetH = Math.round(targetW * ratio);
-
-    ctx.drawImage(img, pad, y, targetW, targetH);
-    y += targetH + pad;
-  }
-
-  // export blob
-  const blob = await new Promise(res=> out.toBlob(res, 'image/png', 0.95));
-  const file = new File([blob], `CE_Reporte_${todayISO()}.png`, {type:'image/png'});
-
-  // share si el navegador lo soporta
-  if(navigator.canShare && navigator.canShare({files:[file]})){
-    await navigator.share({
-      title: 'Reporte CE',
-      text: `Reporte CE (${caption})`,
-      files: [file]
-    });
-  } else {
-    // fallback: descargar
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = file.name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    alert('Se descargó la imagen. Luego la puedes enviar por WhatsApp.');
-  }
 }
 
 /**********************
