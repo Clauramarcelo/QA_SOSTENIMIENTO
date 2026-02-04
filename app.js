@@ -1,14 +1,20 @@
-// CE Offline App - IndexedDB + gráficos simples en Canvas
+// CE Offline App - IndexedDB + Reportes + Tablas responsive tipo Cards + Badges
 
 /**********************
- * Utilidades
+ * CONFIG (Rangos para badges)
+ * Ajusta estos valores según tu CE real.
  **********************/
+const LIMITS = {
+  slump: { min: 60, max: 100 },        // mm
+  temp:  { warn: 28, bad: 35 },        // °C
+  aire:  { min: 5.5, max: 7.5 }        // presión (bar típico, ajustable)
+};
+
+// Helpers DOM
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
-function uid(){
-  return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-}
+function uid(){ return `${Date.now()}_${Math.random().toString(16).slice(2)}`; }
 
 function todayISO(){
   const d = new Date();
@@ -22,7 +28,6 @@ function setStatus(el, msg, ms=2500){
 }
 
 function parseDateISO(iso){
-  // iso: YYYY-MM-DD
   if(!iso) return null;
   const [y,m,d] = iso.split('-').map(Number);
   return new Date(y, m-1, d);
@@ -38,10 +43,56 @@ function inRange(dateIso, desdeIso, hastaIso){
   return true;
 }
 
+function esc(s){
+  return String(s ?? '').replace(/[&<>"']/g, m => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[m]));
+}
+
+function formatNum(v){
+  if(v === null || v === undefined || Number.isNaN(v)) return '';
+  if(Number.isInteger(v)) return String(v);
+  return (Math.round(v*100)/100).toFixed(2).replace(/\.00$/,'');
+}
+
+/**********************
+ * Badges (estado)
+ **********************/
+function badgeChip(cls, text){
+  return `<span class="badge-chip ${cls}">${esc(text)}</span>`;
+}
+
+function statusSlump(v){
+  if(v === null || v === undefined || Number.isNaN(v)) return {cls:'neutral', text:'Sin dato'};
+  if(v < LIMITS.slump.min) return {cls:'warn', text:`Bajo (${v})`};
+  if(v > LIMITS.slump.max) return {cls:'warn', text:`Alto (${v})`};
+  return {cls:'ok', text:`OK (${v})`};
+}
+
+function statusTemp(v){
+  if(v === null || v === undefined || Number.isNaN(v)) return {cls:'neutral', text:'Sin dato'};
+  if(v >= LIMITS.temp.bad) return {cls:'bad', text:`Alerta (${v}°C)`};
+  if(v >= LIMITS.temp.warn) return {cls:'warn', text:`Alta (${v}°C)`};
+  return {cls:'ok', text:`OK (${v}°C)`};
+}
+
+function statusAire(v){
+  if(v === null || v === undefined || Number.isNaN(v)) return {cls:'neutral', text:'Sin dato'};
+  if(v < LIMITS.aire.min) return {cls:'warn', text:`Baja (${v})`};
+  if(v > LIMITS.aire.max) return {cls:'warn', text:`Alta (${v})`};
+  return {cls:'ok', text:`OK (${v})`};
+}
+
+function statusPernos(hel, sw){
+  const total = (Number(hel)||0) + (Number(sw)||0);
+  if(total <= 0) return {cls:'warn', text:'0 pernos'};
+  if(total < 5) return {cls:'neutral', text:`Pocos (${total})`};
+  return {cls:'ok', text:`OK (${total})`};
+}
+
 /**********************
  * IndexedDB
  **********************/
-
 const DB_NAME = 'ce_qc_db';
 const DB_VER = 1;
 let db;
@@ -119,11 +170,11 @@ function initTabs(){
     btn.addEventListener('click', ()=>{
       $$('.tab').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
+
       const name = btn.dataset.tab;
       $$('.panel').forEach(p=>p.classList.remove('active'));
       $(`#tab-${name}`).classList.add('active');
 
-      // refrescos puntuales
       if(name==='bd') refreshDBTables();
       if(name==='reporte') buildReport();
     });
@@ -131,28 +182,47 @@ function initTabs(){
 }
 
 /**********************
+ * Row builder: crea TDs con data-label (para cards en móvil)
+ **********************/
+function makeRow(cells){
+  const tr = document.createElement('tr');
+  cells.forEach(({label, html})=>{
+    const td = document.createElement('td');
+    td.setAttribute('data-label', label);
+    td.innerHTML = `<div class="cell-right">${html}</div>`;
+    tr.appendChild(td);
+  });
+  return tr;
+}
+
+function delBtn(store, id){
+  return `<button class="btn btn-danger" data-del="${store}:${id}" title="Eliminar">Eliminar</button>`;
+}
+
+/**********************
  * Formularios
  **********************/
 function initForms(){
-  // Defaults de fecha
+  // defaults
   ['#formSlump input[name=fecha]','#formResist input[name=fecha]','#formPernos input[name=fecha]', '#fDesde', '#fHasta', '#rDesde', '#rHasta']
     .forEach(sel=>{ const el=$(sel); if(el) el.value = todayISO(); });
 
-  // Pernos: habilitar cantidades por checkbox
+  // pernos
   const chkHel = $('#chkHel');
   const chkSw = $('#chkSw');
   const cantHel = $('#cantHel');
   const cantSw = $('#cantSw');
-  const syncPernosInputs = ()=>{
+
+  const sync = ()=>{
     cantHel.disabled = !chkHel.checked;
     cantSw.disabled = !chkSw.checked;
     if(!chkHel.checked) cantHel.value = 0;
     if(!chkSw.checked) cantSw.value = 0;
   };
-  chkHel.addEventListener('change', syncPernosInputs);
-  chkSw.addEventListener('change', syncPernosInputs);
+  chkHel.addEventListener('change', sync);
+  chkSw.addEventListener('change', sync);
 
-  // TAB1 - Slump
+  // Slump
   $('#formSlump').addEventListener('submit', async (e)=>{
     e.preventDefault();
     const fd = new FormData(e.target);
@@ -176,7 +246,7 @@ function initForms(){
     refreshRecent();
   });
 
-  // TAB2 - Resistencias
+  // Resist
   $('#formResist').addEventListener('submit', async (e)=>{
     e.preventDefault();
     const fd = new FormData(e.target);
@@ -197,15 +267,15 @@ function initForms(){
     refreshRecent();
   });
 
-  // TAB3 - Pernos
+  // Pernos
   $('#formPernos').addEventListener('submit', async (e)=>{
     e.preventDefault();
     const fd = new FormData(e.target);
 
-    const hel = $('#chkHel').checked ? Number(fd.get('cantHel')||0) : 0;
-    const sw = $('#chkSw').checked ? Number(fd.get('cantSw')||0) : 0;
+    const hel = chkHel.checked ? Number(fd.get('cantHel')||0) : 0;
+    const sw = chkSw.checked ? Number(fd.get('cantSw')||0) : 0;
 
-    if(hel===0 && sw===0){
+    if((hel+sw) <= 0){
       setStatus($('#pernosStatus'), '⚠️ Marca un tipo e ingresa una cantidad.', 3500);
       return;
     }
@@ -224,23 +294,22 @@ function initForms(){
     setStatus($('#pernosStatus'), '✅ Registro guardado.');
     e.target.reset();
     e.target.querySelector('input[name=fecha]').value = todayISO();
-    // reset checkboxes/inputs
-    $('#chkHel').checked = false; $('#chkSw').checked = false;
-    $('#cantHel').value = 0; $('#cantSw').value = 0;
-    $('#cantHel').disabled = true; $('#cantSw').disabled = true;
+    chkHel.checked=false; chkSw.checked=false;
+    cantHel.value=0; cantSw.value=0;
+    cantHel.disabled=true; cantSw.disabled=true;
     refreshRecent();
   });
 
-  // Filtro BD
+  // filtros BD
   $('#btnFiltrar').addEventListener('click', refreshDBTables);
   $('#btnLimpiarFiltro').addEventListener('click', ()=>{
     $('#fDesde').value=''; $('#fHasta').value='';
     refreshDBTables();
   });
 
-  // Borrar todo
+  // borrar todo
   $('#btnBorrarTodo').addEventListener('click', async ()=>{
-    const ok = confirm('¿Seguro que deseas borrar TODO? Esta acción no se puede deshacer. Recomendación: Exporta antes.');
+    const ok = confirm('¿Seguro que deseas borrar TODO? No se puede deshacer. Recomendación: Exporta antes.');
     if(!ok) return;
     await clearStore('slump');
     await clearStore('resist');
@@ -251,14 +320,14 @@ function initForms(){
     alert('Listo: Base de datos borrada.');
   });
 
-  // Reporte
+  // reporte
   $('#btnReporte').addEventListener('click', buildReport);
   $('#btnReporteTodo').addEventListener('click', ()=>{
     $('#rDesde').value=''; $('#rHasta').value='';
     buildReport();
   });
 
-  // Export / Import
+  // export/import
   $('#btnExport').addEventListener('click', exportJSON);
   $('#importFile').addEventListener('change', importJSON);
 }
@@ -266,40 +335,61 @@ function initForms(){
 /**********************
  * Tablas (Recientes y BD)
  **********************/
-
-function row(td){ const tr=document.createElement('tr'); td.forEach(x=>{const c=document.createElement('td'); c.innerHTML=x; tr.appendChild(c);}); return tr; }
-
-function delBtn(store, id){
-  return `<button class="btn btn-danger" data-del="${store}:${id}" title="Eliminar">Eliminar</button>`;
-}
-
 async function refreshRecent(){
-  // muestra 8 últimos de cada tipo
   const [sl, re, pe] = await Promise.all([getAll('slump'), getAll('resist'), getAll('pernos')]);
 
-  const last = (arr)=> arr
-    .slice()
-    .sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||''))
-    .slice(0,8);
+  const last = (arr)=> arr.slice().sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||'')).slice(0,8);
 
+  // Slump recientes
   const slb = $('#slumpRecent tbody'); slb.innerHTML='';
-  last(sl).forEach(r=> slb.appendChild(row([
-    r.fecha, r.hora, esc(r.labor), esc(r.nivel), r.slump, r.temp, r.presionAire
-  ])));
+  last(sl).forEach(r=>{
+    const s1 = statusSlump(Number(r.slump));
+    const s2 = statusTemp(Number(r.temp));
+    const s3 = statusAire(Number(r.presionAire));
 
+    const estado = badgeChip(s1.cls, s1.text) + ' ' + badgeChip(s2.cls, s2.text) + ' ' + badgeChip(s3.cls, s3.text);
+
+    slb.appendChild(makeRow([
+      {label:'Fecha', html: esc(r.fecha)},
+      {label:'Hora', html: esc(r.hora)},
+      {label:'Labor', html: esc(r.labor)},
+      {label:'Nivel', html: esc(r.nivel)},
+      {label:'Slump', html: `${formatNum(r.slump)} mm`},
+      {label:'T°', html: `${formatNum(r.temp)} °C`},
+      {label:'Presión', html: `${formatNum(r.presionAire)}`},
+      {label:'Estado', html: estado}
+    ]));
+  });
+
+  // Resist recientes
   const reb = $('#resistRecent tbody'); reb.innerHTML='';
-  last(re).forEach(r=> reb.appendChild(row([
-    r.fecha, r.hora, esc(r.labor), esc(r.nivel), esc(r.edad), r.resistencia
-  ])));
+  last(re).forEach(r=>{
+    reb.appendChild(makeRow([
+      {label:'Fecha', html: esc(r.fecha)},
+      {label:'Hora', html: esc(r.hora)},
+      {label:'Labor', html: esc(r.labor)},
+      {label:'Nivel', html: esc(r.nivel)},
+      {label:'Edad', html: esc(r.edad)},
+      {label:'MPa', html: formatNum(r.resistencia)}
+    ]));
+  });
 
+  // Pernos recientes
   const peb = $('#pernosRecent tbody'); peb.innerHTML='';
-  last(pe).forEach(r=> peb.appendChild(row([
-    r.fecha, r.hora, esc(r.labor), esc(r.nivel), r.helicoidal||0, r.swellex||0
-  ])));
-}
+  last(pe).forEach(r=>{
+    const st = statusPernos(r.helicoidal, r.swellex);
+    const estado = badgeChip(st.cls, st.text);
 
-function esc(s){
-  return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    peb.appendChild(makeRow([
+      {label:'Fecha', html: esc(r.fecha)},
+      {label:'Hora', html: esc(r.hora)},
+      {label:'Labor', html: esc(r.labor)},
+      {label:'Nivel', html: esc(r.nivel)},
+      {label:'Helicoidal', html: formatNum(r.helicoidal || 0)},
+      {label:'Swellex', html: formatNum(r.swellex || 0)},
+      {label:'Estado', html: estado}
+    ]));
+  });
 }
 
 async function refreshDBTables(){
@@ -312,22 +402,62 @@ async function refreshDBTables(){
     getAllFiltered('pernos', desde, hasta)
   ]);
 
+  // Slump BD
   const slb = $('#tblSlump tbody'); slb.innerHTML='';
-  sl.forEach(r=> slb.appendChild(row([
-    r.fecha, r.hora, esc(r.labor), esc(r.nivel), r.slump, r.temp, r.presionAire, esc(r.mixerHS), r.hll, delBtn('slump', r.id)
-  ])));
+  sl.forEach(r=>{
+    const s1 = statusSlump(Number(r.slump));
+    const s2 = statusTemp(Number(r.temp));
+    const s3 = statusAire(Number(r.presionAire));
+    const estado = badgeChip(s1.cls, s1.text) + ' ' + badgeChip(s2.cls, s2.text) + ' ' + badgeChip(s3.cls, s3.text);
 
+    slb.appendChild(makeRow([
+      {label:'Fecha', html: esc(r.fecha)},
+      {label:'Hora', html: esc(r.hora)},
+      {label:'Labor', html: esc(r.labor)},
+      {label:'Nivel', html: esc(r.nivel)},
+      {label:'Slump', html: `${formatNum(r.slump)} mm`},
+      {label:'T°', html: `${formatNum(r.temp)} °C`},
+      {label:'Presión', html: `${formatNum(r.presionAire)}`},
+      {label:'Mixer/HS', html: esc(r.mixerHS)},
+      {label:'H_LL', html: esc(r.hll)},
+      {label:'Estado', html: estado},
+      {label:'Acción', html: delBtn('slump', r.id)}
+    ]));
+  });
+
+  // Resist BD
   const reb = $('#tblResist tbody'); reb.innerHTML='';
-  re.forEach(r=> reb.appendChild(row([
-    r.fecha, r.hora, esc(r.labor), esc(r.nivel), esc(r.edad), r.resistencia, delBtn('resist', r.id)
-  ])));
+  re.forEach(r=>{
+    reb.appendChild(makeRow([
+      {label:'Fecha', html: esc(r.fecha)},
+      {label:'Hora', html: esc(r.hora)},
+      {label:'Labor', html: esc(r.labor)},
+      {label:'Nivel', html: esc(r.nivel)},
+      {label:'Edad', html: esc(r.edad)},
+      {label:'MPa', html: formatNum(r.resistencia)},
+      {label:'Acción', html: delBtn('resist', r.id)}
+    ]));
+  });
 
+  // Pernos BD
   const peb = $('#tblPernos tbody'); peb.innerHTML='';
-  pe.forEach(r=> peb.appendChild(row([
-    r.fecha, r.hora, esc(r.labor), esc(r.nivel), r.helicoidal||0, r.swellex||0, delBtn('pernos', r.id)
-  ])));
+  pe.forEach(r=>{
+    const st = statusPernos(r.helicoidal, r.swellex);
+    const estado = badgeChip(st.cls, st.text);
 
-  // eventos eliminar
+    peb.appendChild(makeRow([
+      {label:'Fecha', html: esc(r.fecha)},
+      {label:'Hora', html: esc(r.hora)},
+      {label:'Labor', html: esc(r.labor)},
+      {label:'Nivel', html: esc(r.nivel)},
+      {label:'Helicoidal', html: formatNum(r.helicoidal || 0)},
+      {label:'Swellex', html: formatNum(r.swellex || 0)},
+      {label:'Estado', html: estado},
+      {label:'Acción', html: delBtn('pernos', r.id)}
+    ]));
+  });
+
+  // evento eliminar
   $$('[data-del]').forEach(b=>{
     b.addEventListener('click', async ()=>{
       const [store,id] = b.dataset.del.split(':');
@@ -366,18 +496,17 @@ async function importJSON(e){
   if(!file) return;
   const text = await file.text();
   let data;
-  try{ data = JSON.parse(text); }catch(err){ alert('Archivo inválido.'); return; }
+  try{ data = JSON.parse(text); }catch{ alert('Archivo inválido.'); return; }
 
   const ok = confirm('Importar fusionará datos con los existentes (no borra). ¿Continuar?');
   if(!ok) return;
 
   const importStore = async (name, rows)=>{
     if(!Array.isArray(rows)) return;
-    // Insertar uno por uno. Si el id ya existe, generar uno nuevo.
     for(const r of rows){
       const rec = {...r};
-      if(!rec.id) rec.id = uid(); else rec.id = rec.id + '_imp_' + Math.random().toString(16).slice(2);
-      try{ await addRecord(name, rec); }catch(_){ /* skip */ }
+      rec.id = (rec.id ? (rec.id + '_imp_' + Math.random().toString(16).slice(2)) : uid());
+      try{ await addRecord(name, rec); }catch(_){}
     }
   };
 
@@ -393,9 +522,8 @@ async function importJSON(e){
 }
 
 /**********************
- * Reporte y Gráficos
+ * Reporte y gráficos (tema claro + naranja)
  **********************/
-
 function groupByLabor(rows){
   const m = new Map();
   for(const r of rows){
@@ -405,18 +533,40 @@ function groupByLabor(rows){
   }
   return m;
 }
+function mean(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+function sum(arr){ return arr.reduce((a,b)=>a+b,0); }
 
-function mean(arr){
-  if(!arr.length) return 0;
-  return arr.reduce((a,b)=>a+b,0)/arr.length;
+function niceNumber(maxV){
+  const exp = Math.floor(Math.log10(maxV));
+  const f = maxV / Math.pow(10, exp);
+  let nf = 1;
+  if(f<=1) nf=1; else if(f<=2) nf=2; else if(f<=5) nf=5; else nf=10;
+  return nf * Math.pow(10, exp);
 }
-
-function sum(arr){
-  return arr.reduce((a,b)=>a+b,0);
+function truncate(s, n){
+  s = String(s);
+  return s.length>n ? s.slice(0,n-1)+'…' : s;
+}
+function rangoCaption(desde,hasta){
+  if(!desde && !hasta) return 'Todo el historial';
+  if(desde && !hasta) return `Desde ${desde}`;
+  if(!desde && hasta) return `Hasta ${hasta}`;
+  return `${desde} a ${hasta}`;
 }
 
 function drawBarChart(canvas, labels, values, opts={}){
   const ctx = canvas.getContext('2d');
+
+  const css = getComputedStyle(document.documentElement);
+  const BG  = (opts.bg || css.getPropertyValue('--surface').trim() || '#ffffff');
+  const TXT = (opts.text || css.getPropertyValue('--text').trim() || '#111827');
+
+  const GRID = 'rgba(17,24,39,.10)';
+  const AXIS = 'rgba(17,24,39,.18)';
+
+  const TOP = (opts.colorTop || css.getPropertyValue('--accent').trim() || '#F97316');
+  const BOT = (opts.colorBottom || css.getPropertyValue('--accent2').trim() || '#FB923C');
+
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0,0,W,H);
 
@@ -424,12 +574,11 @@ function drawBarChart(canvas, labels, values, opts={}){
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
 
-  // fondo
-  ctx.fillStyle = '#0b1326';
+  ctx.fillStyle = BG;
   ctx.fillRect(0,0,W,H);
 
-  // ejes
-  ctx.strokeStyle = 'rgba(255,255,255,.18)';
+  // Ejes
+  ctx.strokeStyle = AXIS;
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(padL, padT);
@@ -440,22 +589,25 @@ function drawBarChart(canvas, labels, values, opts={}){
   const maxV = Math.max(1, ...values);
   const niceMax = niceNumber(maxV);
 
-  // ticks
-  ctx.fillStyle = 'rgba(255,255,255,.65)';
+  // Ticks
   ctx.font = '12px system-ui';
   const ticks = 5;
   for(let i=0;i<=ticks;i++){
-    const v = niceMax * (i/ticks);
+    const v = niceMax*(i/ticks);
     const y = padT + plotH - (v/niceMax)*plotH;
-    ctx.strokeStyle = 'rgba(255,255,255,.10)';
+
+    ctx.strokeStyle = GRID;
     ctx.beginPath();
     ctx.moveTo(padL, y);
     ctx.lineTo(padL+plotW, y);
     ctx.stroke();
+
+    ctx.fillStyle = 'rgba(17,24,39,.75)';
+    ctx.textAlign = 'left';
     ctx.fillText(formatNum(v), 8, y+4);
   }
 
-  // barras
+  // Barras
   const n = labels.length || 1;
   const gap = Math.max(6, plotW * 0.03 / n);
   const barW = (plotW - gap*(n+1)) / n;
@@ -466,56 +618,34 @@ function drawBarChart(canvas, labels, values, opts={}){
     const h = (v/niceMax)*plotH;
     const y = padT + plotH - h;
 
-    // gradiente
     const g = ctx.createLinearGradient(0,y,0,y+h);
-    g.addColorStop(0, opts.colorTop || 'rgba(15,121,208,.95)');
-    g.addColorStop(1, opts.colorBottom || 'rgba(11,92,171,.75)');
+    g.addColorStop(0, TOP);
+    g.addColorStop(1, BOT);
     ctx.fillStyle = g;
     ctx.fillRect(x, y, barW, h);
 
-    // valor encima
-    ctx.fillStyle = 'rgba(232,240,255,.92)';
-    ctx.font = '12px system-ui';
+    // valor
+    ctx.fillStyle = TXT;
     ctx.textAlign = 'center';
-    ctx.fillText(formatNum(v), x+barW/2, y-6);
+    ctx.fillText(formatNum(v), x+barW/2, Math.max(14, y-6));
 
-    // etiqueta (rotada)
+    // etiqueta
     const label = labels[i];
     ctx.save();
     ctx.translate(x+barW/2, padT+plotH+52);
     ctx.rotate(-Math.PI/6);
-    ctx.fillStyle = 'rgba(255,255,255,.75)';
+    ctx.fillStyle = 'rgba(17,24,39,.78)';
     ctx.textAlign = 'center';
     ctx.fillText(truncate(label, 18), 0, 0);
     ctx.restore();
   }
 
-  // título opcional
+  // caption
   if(opts.caption){
-    ctx.fillStyle='rgba(255,255,255,.75)';
+    ctx.fillStyle='rgba(17,24,39,.65)';
     ctx.textAlign='left';
-    ctx.font='12px system-ui';
     ctx.fillText(opts.caption, padL, 14);
   }
-}
-
-function niceNumber(maxV){
-  // redondeo a 1-2-5 * 10^n
-  const exp = Math.floor(Math.log10(maxV));
-  const f = maxV / Math.pow(10, exp);
-  let nf = 1;
-  if(f<=1) nf=1; else if(f<=2) nf=2; else if(f<=5) nf=5; else nf=10;
-  return nf * Math.pow(10, exp);
-}
-
-function formatNum(v){
-  if(Number.isInteger(v)) return String(v);
-  return (Math.round(v*100)/100).toFixed(2).replace(/\.00$/,'');
-}
-
-function truncate(s, n){
-  s = String(s);
-  return s.length>n ? s.slice(0,n-1)+'…' : s;
 }
 
 async function buildReport(){
@@ -527,9 +657,10 @@ async function buildReport(){
     getAllFiltered('pernos', desde, hasta)
   ]);
 
-  // Slump/temp/aire por labor
   const gSl = groupByLabor(sl);
-  const labores = Array.from(new Set([...gSl.keys(), ...groupByLabor(pe).keys()])).sort((a,b)=>a.localeCompare(b));
+  const gPe = groupByLabor(pe);
+
+  const labores = Array.from(new Set([...gSl.keys(), ...gPe.keys()])).sort((a,b)=>a.localeCompare(b));
 
   const slumpVals = labores.map(l => {
     const rows = gSl.get(l) || [];
@@ -546,42 +677,47 @@ async function buildReport(){
     return rows.length ? mean(rows.map(r=>Number(r.presionAire)||0)) : 0;
   });
 
-  // Pernos por labor (suma)
-  const gPe = groupByLabor(pe);
   const pernosVals = labores.map(l => {
     const rows = gPe.get(l) || [];
     return sum(rows.map(r => (Number(r.helicoidal)||0) + (Number(r.swellex)||0)));
   });
 
-  // Dibujar
-  drawBarChart($('#chartSlump'), labores, slumpVals, {caption: rangoCaption(desde,hasta)});
-  drawBarChart($('#chartTemp'), labores, tempVals, {colorTop:'rgba(46,204,113,.92)', colorBottom:'rgba(39,174,96,.75)', caption: rangoCaption(desde,hasta)});
-  drawBarChart($('#chartAire'), labores, aireVals, {colorTop:'rgba(241,196,15,.92)', colorBottom:'rgba(243,156,18,.75)', caption: rangoCaption(desde,hasta)});
-  drawBarChart($('#chartPernos'), labores, pernosVals, {colorTop:'rgba(155,89,182,.92)', colorBottom:'rgba(142,68,173,.75)', caption: rangoCaption(desde,hasta)});
+  const caption = rangoCaption(desde,hasta);
 
-  // Resumen
+  // Slump & Pernos (naranja)
+  drawBarChart($('#chartSlump'), labores, slumpVals, {caption});
+  drawBarChart($('#chartPernos'), labores, pernosVals, {caption});
+
+  // Temp & Aire (gris/naranja suave, sigue paleta)
+  drawBarChart($('#chartTemp'), labores, tempVals, {
+    caption,
+    colorTop: 'rgba(107,114,128,.92)',
+    colorBottom: 'rgba(156,163,175,.82)'
+  });
+
+  drawBarChart($('#chartAire'), labores, aireVals, {
+    caption,
+    colorTop: 'rgba(249,115,22,.78)',
+    colorBottom: 'rgba(251,146,60,.62)'
+  });
+
+  // resumen
   const totalSl = sl.length;
   const totalPe = pe.reduce((acc,r)=> acc + (Number(r.helicoidal)||0) + (Number(r.swellex)||0), 0);
+
   const promSlump = totalSl ? mean(sl.map(r=>Number(r.slump)||0)) : 0;
   const promTemp = totalSl ? mean(sl.map(r=>Number(r.temp)||0)) : 0;
   const promAire = totalSl ? mean(sl.map(r=>Number(r.presionAire)||0)) : 0;
 
   $('#resumenReporte').innerHTML = `
     <ul>
-      <li><strong>Rango:</strong> ${rangoCaption(desde,hasta)}</li>
+      <li><strong>Rango:</strong> ${caption}</li>
       <li><strong>Registros Slump:</strong> ${totalSl}</li>
       <li><strong>Pernos instalados:</strong> ${formatNum(totalPe)} unid.</li>
-      <li><strong>Promedios globales:</strong> Slump ${formatNum(promSlump)} mm • T° ${formatNum(promTemp)} °C • Presión Aire ${formatNum(promAire)}</li>
+      <li><strong>Promedios globales:</strong> Slump ${formatNum(promSlump)} mm • T° ${formatNum(promTemp)} °C • Presión ${formatNum(promAire)}</li>
       <li><strong>Labores consideradas:</strong> ${labores.length}</li>
     </ul>
   `;
-}
-
-function rangoCaption(desde,hasta){
-  if(!desde && !hasta) return 'Todo el historial';
-  if(desde && !hasta) return `Desde ${desde}`;
-  if(!desde && hasta) return `Hasta ${hasta}`;
-  return `${desde} a ${hasta}`;
 }
 
 /**********************
@@ -609,7 +745,6 @@ function initOfflineBadge(){
   initForms();
   initOfflineBadge();
   await refreshRecent();
-  // tablas y reportes al inicio
   await refreshDBTables();
   await buildReport();
 })();
