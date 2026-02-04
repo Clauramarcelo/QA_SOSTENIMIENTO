@@ -12,8 +12,6 @@
   --accentSoft: rgba(249,115,22,.14);
 
   --danger:#EF4444;
-  --warn:#F59E0B;
-  --ok:#16A34A;
 
   --shadow: 0 12px 32px rgba(0,0,0,.07);
   --shadowSm: 0 8px 18px rgba(0,0,0,.06);
@@ -44,7 +42,6 @@ body{
   top:0;
   z-index:10;
   display:flex;
-  justify-content:space-between;
   align-items:center;
   gap:12px;
   padding:12px 14px;
@@ -58,6 +55,7 @@ body{
   gap:12px;
   align-items:center;
 }
+
 .logo{
   width:46px;
   height:46px;
@@ -70,15 +68,9 @@ body{
   background: linear-gradient(135deg, var(--accent), var(--accent2));
   box-shadow: 0 14px 26px rgba(249,115,22,.28);
 }
+
 .title{ font-weight: 900; line-height:1.1; }
 .subtitle{ font-size:12px; color: var(--muted); margin-top:2px; }
-
-.header-actions{
-  display:flex;
-  gap:10px;
-  align-items:center;
-  flex-wrap:wrap;
-}
 
 /* LAYOUT */
 .container{
@@ -93,7 +85,6 @@ h3{ margin: 0 0 10px; }
 
 .muted{ color: var(--muted); }
 .hint{ color: var(--muted); font-size: 12px; }
-.small{ font-size:12px; }
 
 .mt-12{ margin-top:12px; }
 
@@ -150,6 +141,7 @@ h3{ margin: 0 0 10px; }
   box-shadow: var(--shadow);
 }
 
+/* GRIDS */
 .grid{
   display:grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -158,7 +150,7 @@ h3{ margin: 0 0 10px; }
 .grid-2{
   display:grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap:12px;
+  gap:14px;
 }
 .grid-4{
   display:grid;
@@ -203,6 +195,8 @@ input:focus{
 }
 input:disabled{ opacity:.62; cursor:not-allowed; }
 
+.inline-status{ margin-top: 10px; font-size: 13px; color: var(--muted); }
+
 /* BUTTONS */
 .actions{
   display:flex;
@@ -245,8 +239,6 @@ input:disabled{ opacity:.62; cursor:not-allowed; }
 }
 .check input{ width:18px; height:18px; accent-color: var(--accent); }
 
-.inline-status{ margin-top: 10px; font-size: 13px; color: var(--muted); }
-
 /* TABLES */
 .table-wrap{
   overflow:auto;
@@ -275,7 +267,7 @@ input:disabled{ opacity:.62; cursor:not-allowed; }
   background: rgba(249,115,22,.06);
 }
 
-/* ✅ MÓVIL: tabla → tarjetas */
+/* MÓVIL: tabla → tarjetas */
 @media (max-width: 680px){
   .table{ min-width: 0; border-collapse: separate; border-spacing: 0 12px; }
   .table thead{ display:none; }
@@ -305,37 +297,37 @@ input:disabled{ opacity:.62; cursor:not-allowed; }
   .table td .cell-right{ text-align:right; flex: 1 1 auto; }
 }
 
-/* BADGES */
-.badge-chip{
-  display:inline-flex;
-  align-items:center;
-  padding: 5px 10px;
-  border-radius: 999px;
-  font-weight: 900;
+/* KPI big cards (Temperatura & Pernos) */
+.kpis-2{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap:12px;
+  margin-top:12px;
+}
+.kpi-big{
+  background: rgba(249,115,22,.06);
+  border: 1px solid rgba(17,24,39,.10);
+  border-radius: 18px;
+  padding: 14px;
+}
+.kpi-title{
+  font-weight:900;
+  font-size:13px;
+  color: rgba(17,24,39,.70);
+}
+.kpi-value{
+  font-weight: 1000;
+  font-size: 34px;
+  margin-top:6px;
+  color: var(--text);
+}
+.kpi-sub{
+  margin-top:4px;
   font-size: 12px;
-  border: 1px solid transparent;
-  white-space: nowrap;
-  margin-right:6px;
 }
-.badge-chip.ok{
-  color: #0F5132;
-  background: rgba(22,163,74,.12);
-  border-color: rgba(22,163,74,.25);
-}
-.badge-chip.warn{
-  color: #7C2D12;
-  background: rgba(245,158,11,.14);
-  border-color: rgba(245,158,11,.28);
-}
-.badge-chip.bad{
-  color: #7F1D1D;
-  background: rgba(239,68,68,.14);
-  border-color: rgba(239,68,68,.28);
-}
-.badge-chip.neutral{
-  color: rgba(17,24,39,.78);
-  background: rgba(17,24,39,.08);
-  border-color: rgba(17,24,39,.12);
+
+@media (max-width: 680px){
+  .kpis-2{ grid-template-columns: 1fr; }
 }
 
 /* CANVAS */
@@ -375,9 +367,7 @@ canvas{
   background: rgba(249,115,22,.12);
 }
 
-/* ==========================
-   PRINT VIEW (PDF)
-   ========================== */
+/* PRINT (PDF) */
 @media print{
   body{ background:#fff !important; }
   .app-header, .tabs, .footer, .btn, .btn-secondary, .btn-danger { display:none !important; }
