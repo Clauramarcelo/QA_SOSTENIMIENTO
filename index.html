@@ -37,15 +37,16 @@
 
 <main class="container">
 
-  <!-- TAB 1 -->
+  <!-- TAB 1 (solo formulario; sin tabla abajo) -->
   <section id="tab-slump" class="panel active" role="tabpanel">
     <div class="panel-head">
       <h2>Slump y Temperatura</h2>
-      <p class="muted">Registra slump, temperatura, presión de aire y tiempos (HS / H_LL).</p>
+      <p class="muted">Registro de control (Slump en pulgadas con fracciones).</p>
     </div>
 
     <form id="formSlump" class="card">
-      <div class="grid">
+      <!-- Fila 1 -->
+      <div class="grid grid-4">
         <div>
           <label>Fecha</label>
           <input type="date" name="fecha" required />
@@ -54,7 +55,6 @@
           <label>Hora del Slump</label>
           <input type="time" name="horaSlump" required />
         </div>
-
         <div>
           <label>Labor</label>
           <input type="text" name="labor" placeholder="Ej. NV-520 Rampa 3" required />
@@ -63,26 +63,31 @@
           <label>Nivel</label>
           <input type="text" name="nivel" placeholder="Ej. 520" required />
         </div>
+      </div>
 
+      <!-- Fila 2 -->
+      <div class="grid grid-4 mt-12">
         <div>
-          <label>Slump (mm)</label>
-          <input type="number" name="slump" min="0" step="1" placeholder="Ej. 80" required />
+          <label>Slump (pulgadas)</label>
+          <input type="text" name="slumpIn" placeholder='Ej. 9 3/4" | 10 1/4" | 7/8"' required />
+          <small class="hint">Acepta: 9 3/4", 10 1/4", 7/8", 9.75"</small>
         </div>
         <div>
           <label>Temperatura (°C)</label>
           <input type="number" name="temp" step="0.1" placeholder="Ej. 18.5" required />
         </div>
-
         <div>
           <label>Presión de aire</label>
           <input type="number" name="presionAire" step="0.1" placeholder="Ej. 6.5" required />
-          <small class="hint">Si no es bar, indícalo en observaciones.</small>
         </div>
         <div>
           <label>Mixer / HS (Hora salida)</label>
           <input type="text" name="mixerHS" placeholder="Ej. Mixer 07 / 14:10" required />
         </div>
+      </div>
 
+      <!-- Fila 3 -->
+      <div class="grid grid-2 mt-12">
         <div>
           <label>H_LL (Hora llegada)</label>
           <input type="time" name="hll" required />
@@ -99,33 +104,7 @@
       </div>
 
       <div class="inline-status" id="slumpStatus" aria-live="polite"></div>
-
-      <div class="legend">
-        <span class="badge-chip ok">OK</span>
-        <span class="badge-chip warn">Bajo/Alto</span>
-        <span class="badge-chip bad">Alerta</span>
-        <span class="hint">Badges automáticos según rangos configurables.</span>
-      </div>
     </form>
-
-    <div class="card">
-      <div class="card-head">
-        <h3>Últimos registros (Slump)</h3>
-        <p class="muted small">En celular se muestran como tarjetas.</p>
-      </div>
-
-      <div class="table-wrap">
-        <table class="table" id="slumpRecent">
-          <thead>
-            <tr>
-              <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th>
-              <th>Slump</th><th>T°</th><th>Presión</th><th>Estado</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
   </section>
 
   <!-- TAB 2 -->
@@ -145,7 +124,6 @@
           <label>Hora</label>
           <input type="time" name="hora" required />
         </div>
-
         <div>
           <label>Labor</label>
           <input type="text" name="labor" required />
@@ -154,7 +132,6 @@
           <label>Nivel</label>
           <input type="text" name="nivel" required />
         </div>
-
         <div>
           <label>Edad (min / h)</label>
           <input type="text" name="edad" placeholder="Ej. 30 min, 1 h, 3 h" required />
@@ -163,7 +140,6 @@
           <label>Resistencia (MPa)</label>
           <input type="number" name="resistencia" step="0.01" min="0" placeholder="Ej. 1.25" required />
         </div>
-
         <div class="col-span-2">
           <label>Observaciones</label>
           <input type="text" name="obs" placeholder="Opcional" />
@@ -177,24 +153,6 @@
 
       <div class="inline-status" id="resistStatus" aria-live="polite"></div>
     </form>
-
-    <div class="card">
-      <div class="card-head">
-        <h3>Últimos registros (Resistencias)</h3>
-        <p class="muted small">Vista tipo cards en móvil.</p>
-      </div>
-
-      <div class="table-wrap">
-        <table class="table" id="resistRecent">
-          <thead>
-            <tr>
-              <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th><th>Edad</th><th>MPa</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
   </section>
 
   <!-- TAB 3 -->
@@ -214,7 +172,6 @@
           <label>Hora</label>
           <input type="time" name="hora" required />
         </div>
-
         <div>
           <label>Labor</label>
           <input type="text" name="labor" required />
@@ -255,24 +212,6 @@
 
       <div class="inline-status" id="pernosStatus" aria-live="polite"></div>
     </form>
-
-    <div class="card">
-      <div class="card-head">
-        <h3>Últimos registros (Pernos)</h3>
-        <p class="muted small">Vista tipo cards en móvil.</p>
-      </div>
-
-      <div class="table-wrap">
-        <table class="table" id="pernosRecent">
-          <thead>
-            <tr>
-              <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th><th>Helicoidal</th><th>Swellex</th><th>Estado</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
   </section>
 
   <!-- TAB 4 -->
@@ -292,7 +231,6 @@
           <label>Hasta</label>
           <input type="date" id="fHasta" />
         </div>
-
         <div class="col-span-2 actions left">
           <button id="btnFiltrar" class="btn" type="button">Filtrar</button>
           <button id="btnLimpiarFiltro" class="btn btn-secondary" type="button">Ver todo</button>
@@ -303,16 +241,13 @@
     </div>
 
     <div class="card">
-      <div class="card-head">
-        <h3>Slump y T°</h3>
-        <p class="muted small">Vista tipo cards en móvil + badges.</p>
-      </div>
-
+      <h3>Slump y T°</h3>
       <div class="table-wrap">
         <table class="table" id="tblSlump">
           <thead>
             <tr>
-              <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th><th>Slump</th><th>T°</th><th>Presión</th><th>Mixer/HS</th><th>H_LL</th><th>Estado</th><th></th>
+              <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th>
+              <th>Slump</th><th>T°</th><th>Presión</th><th>Mixer/HS</th><th>H_LL</th><th></th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -321,11 +256,7 @@
     </div>
 
     <div class="card">
-      <div class="card-head">
-        <h3>Resistencias Iniciales</h3>
-        <p class="muted small">Vista tipo cards en móvil.</p>
-      </div>
-
+      <h3>Resistencias</h3>
       <div class="table-wrap">
         <table class="table" id="tblResist">
           <thead>
@@ -339,30 +270,25 @@
     </div>
 
     <div class="card">
-      <div class="card-head">
-        <h3>Instalación de Pernos</h3>
-        <p class="muted small">Vista tipo cards en móvil + badges.</p>
-      </div>
-
+      <h3>Pernos</h3>
       <div class="table-wrap">
         <table class="table" id="tblPernos">
           <thead>
             <tr>
-              <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th><th>Helicoidal</th><th>Swellex</th><th>Estado</th><th></th>
+              <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th><th>Helicoidal</th><th>Swellex</th><th></th>
             </tr>
           </thead>
           <tbody></tbody>
         </table>
       </div>
     </div>
-
   </section>
 
   <!-- TAB 5 -->
   <section id="tab-reporte" class="panel" role="tabpanel">
     <div class="panel-head">
-      <h2>Reporte (Gráficos)</h2>
-      <p class="muted">Barras por <strong>Labor</strong>: Slump prom., T° prom., Presión prom. y total de pernos.</p>
+      <h2>Reporte (PDF / WhatsApp)</h2>
+      <p class="muted">Reporte visual moderno (Lollipop charts) y exportación a PDF.</p>
     </div>
 
     <div class="card">
@@ -375,33 +301,40 @@
           <label>Hasta</label>
           <input type="date" id="rHasta" />
         </div>
+
         <div class="col-span-2 actions left">
-          <button id="btnReporte" class="btn" type="button">Actualizar reporte</button>
+          <button id="btnReporte" class="btn" type="button">Actualizar</button>
           <button id="btnReporteTodo" class="btn btn-secondary" type="button">Todo</button>
+          <button id="btnPDF" class="btn btn-secondary" type="button">Exportar PDF</button>
+          <button id="btnShareImg" class="btn" type="button">Compartir (Imagen)</button>
         </div>
       </div>
+      <p class="hint">
+        PDF: abre vista de impresión → “Guardar como PDF” → compartir por WhatsApp.
+        Imagen: genera un PNG listo para compartir directo.
+      </p>
     </div>
 
     <div class="grid-2">
       <div class="card">
-        <h3>Slump promedio (mm) por Labor</h3>
-        <canvas id="chartSlump" width="600" height="360"></canvas>
+        <h3>Slump (") promedio por Labor</h3>
+        <canvas id="chartSlump" width="700" height="440"></canvas>
       </div>
 
       <div class="card">
-        <h3>Temperatura promedio (°C) por Labor</h3>
-        <canvas id="chartTemp" width="600" height="360"></canvas>
+        <h3>Temperatura (°C) promedio por Labor</h3>
+        <canvas id="chartTemp" width="700" height="440"></canvas>
       </div>
 
       <div class="card">
         <h3>Presión de aire promedio por Labor</h3>
-        <canvas id="chartAire" width="600" height="360"></canvas>
+        <canvas id="chartAire" width="700" height="440"></canvas>
       </div>
 
       <div class="card">
-        <h3>Pernos instalados (unid.) por Labor</h3>
-        <canvas id="chartPernos" width="600" height="360"></canvas>
-        <p class="hint">Se suma Helicoidal + Swellex por labor.</p>
+        <h3>Pernos instalados por Labor</h3>
+        <canvas id="chartPernos" width="700" height="440"></canvas>
+        <p class="hint">Suma Helicoidal + Swellex.</p>
       </div>
     </div>
 
@@ -410,7 +343,6 @@
       <div id="resumenReporte" class="muted"></div>
     </div>
   </section>
-
 </main>
 
 <footer class="footer">
@@ -420,7 +352,6 @@
 
 <script src="app.js"></script>
 <script>
-  // Registro del Service Worker (PWA)
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
   }
