@@ -30,24 +30,16 @@
 </nav>
 
 <main class="container">
-
   <!-- TAB 1 -->
   <section id="tab-slump" class="panel active" role="tabpanel">
     <div class="panel-head">
       <h2>Slump y Temperatura</h2>
-      <p class="muted">Registro de control (Slump en pulgadas con fracciones).</p>
-    </div>
-
-    <form id="formSlump" class="card">
+      <p class="muted">Registro de control (Slump en pulgadas con frd">
       <!-- Fila 1 -->
       <div class="grid grid-4">
         <div>
           <label>Fecha</label>
           <input type="date" name="fecha" required />
-        </div>
-        <div>
-          <label>Hora del Slump</label>
-          <input type="time" name="horaSlump" required />
         </div>
         <div>
           <label>Labor</label>
@@ -56,6 +48,10 @@
         <div>
           <label>Nivel</label>
           <input type="text" name="nivel" placeholder="Ej. 520" required />
+        </div>
+        <div>
+          <label>Operador (opcional)</label>
+          <input type="text" name="operador" placeholder="Opcional" />
         </div>
       </div>
 
@@ -75,18 +71,30 @@
           <input type="number" name="presionAire" step="0.1" placeholder="Ej. 6.5" required />
         </div>
         <div>
-          <label>Mixer / HS (Hora salida)</label>
-          <input type="text" name="mixerHS" placeholder="Ej. Mixer 07 / 14:10" required />
+          <label>N° Mixer</label>
+          <input type="text" name="mixerNo" placeholder="Ej. Mixer 07" required />
         </div>
       </div>
 
-      <!-- Fila 3 -->
-      <div class="grid grid-2 mt-12">
+      <!-- Fila 3: Horas (ordenadas) -->
+      <div class="grid-hours mt-12">
         <div>
-          <label>H_LL (Hora llegada)</label>
-          <input type="time" name="hll" required />
+          <label>Hora del Slump</label>
+          <input type="time" name="horaSlump" required />
         </div>
         <div>
+          <label>Hora de salida (HS)</label>
+          <input type="time" name="hsOut" required />
+        </div>
+        <div>
+          <label>Hora llegada (H_LL)</label>
+          <input type="time" name="hll" required />
+        </div>
+      </div>
+
+      <!-- Fila 4 -->
+      <div class="grid grid-2 mt-12">
+        <div class="col-span-2">
           <label>Observaciones</label>
           <input type="text" name="obs" placeholder="Opcional" />
         </div>
@@ -96,7 +104,6 @@
         <button class="btn" type="submit">Guardar</button>
         <button class="btn btn-secondary" type="reset">Limpiar</button>
       </div>
-
       <div class="inline-status" id="slumpStatus" aria-live="polite"></div>
     </form>
   </section>
@@ -144,7 +151,6 @@
         <button class="btn" type="submit">Guardar</button>
         <button class="btn btn-secondary" type="reset">Limpiar</button>
       </div>
-
       <div class="inline-status" id="resistStatus" aria-live="polite"></div>
     </form>
   </section>
@@ -203,7 +209,6 @@
         <button class="btn" type="submit">Guardar</button>
         <button class="btn btn-secondary" type="reset">Limpiar</button>
       </div>
-
       <div class="inline-status" id="pernosStatus" aria-live="polite"></div>
     </form>
   </section>
@@ -225,13 +230,18 @@
           <label>Hasta</label>
           <input type="date" id="fHasta" />
         </div>
+
         <div class="col-span-2 actions left">
           <button id="btnFiltrar" class="btn" type="button">Filtrar</button>
           <button id="btnLimpiarFiltro" class="btn btn-secondary" type="button">Ver todo</button>
+
+          <!-- NUEVO: PDF de Registros -->
+          <button id="btnBDPDF" class="btn btn-secondary" type="button">Exportar PDF</button>
+
           <button id="btnBorrarTodo" class="btn btn-danger" type="button">Borrar TODO</button>
         </div>
       </div>
-      <p class="hint">Recomendación: Exporta antes de borrar toda la base de datos (si luego deseas lo añadimos).</p>
+      <p class="hint">Recomendación: Exporta antes de borrar toda la base de datos.</p>
     </div>
 
     <div class="card">
@@ -241,7 +251,7 @@
           <thead>
             <tr>
               <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th>
-              <th>Slump</th><th>T°</th><th>Presión</th><th>Mixer/HS</th><th>H_LL</th><th></th>
+              <th>Slump</th><th>T°</th><th>Presión</th><th>Mixer</th><th>H_Salida</th><th>H_LL</th><th></th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -282,7 +292,7 @@
   <section id="tab-reporte" class="panel" role="tabpanel">
     <div class="panel-head">
       <h2>Reporte (WhatsApp / PDF)</h2>
-      <p class="muted">Lollipop charts: Slump (") y Presión. Temperatura y Pernos como cards grandes.</p>
+      <p class="muted">Lollipop charts estilo Python: Slump (") y Presión. KPIs premium.</p>
     </div>
 
     <div class="card">
@@ -295,7 +305,6 @@
           <label>Hasta</label>
           <input type="date" id="rHasta" />
         </div>
-
         <div class="col-span-2 actions left">
           <button id="btnReporte" class="btn" type="button">Actualizar</button>
           <button id="btnReporteTodo" class="btn btn-secondary" type="button">Todo</button>
@@ -303,34 +312,47 @@
         </div>
       </div>
 
-      <div class="kpis-2">
+      <!-- KPIs: 4 cards -->
+      <div class="kpis-4">
         <div class="kpi-big">
           <div class="kpi-title">Temperatura Promedio</div>
           <div class="kpi-value" id="kpiTempProm">—</div>
-          <div class="kpi-sub muted" id="kpiTempExtra">Min — | Max —</div>
+          <div class="kpi-sub muted" id="kpiTempExtra">Min — / Max —</div>
         </div>
 
         <div class="kpi-big">
           <div class="kpi-title">Pernos Instalados</div>
           <div class="kpi-value" id="kpiPernosTotal">0</div>
-          <div class="kpi-sub muted" id="kpiPernosExtra">Helicoidal 0 | Swellex 0</div>
+          <div class="kpi-sub muted" id="kpiPernosExtra">Hel 0 / Sw 0</div>
+        </div>
+
+        <div class="kpi-big">
+          <div class="kpi-title">Cumplimiento Slump (OK)</div>
+          <div class="kpi-value" id="kpiSlumpOK">—</div>
+          <div class="kpi-sub muted" id="kpiSlumpOKExtra">OK 0 / Total 0</div>
+        </div>
+
+        <div class="kpi-big">
+          <div class="kpi-title">Presión Promedio Global</div>
+          <div class="kpi-value" id="kpiAireProm">—</div>
+          <div class="kpi-sub muted" id="kpiAireExtra">Promedio —</div>
         </div>
       </div>
 
       <p class="hint">
-        En el celular: Exportar PDF abre impresión → “Guardar como PDF” → Compartir por WhatsApp.
+        En el celular: Exportar PDF → impresión → “Guardar como PDF” → Compartir por WhatsApp.
       </p>
     </div>
 
     <div class="grid-2">
       <div class="card">
         <h3>Slump (") promedio por Labor</h3>
-        <canvas id="chartSlump" width="800" height="520"></canvas>
+        <canvas id="chartSlump" width="900" height="560"></canvas>
       </div>
 
       <div class="card">
         <h3>Presión de aire promedio por Labor</h3>
-        <canvas id="chartAire" width="800" height="520"></canvas>
+        <canvas id="chartAire" width="900" height="560"></canvas>
       </div>
     </div>
 
@@ -348,7 +370,7 @@
 
 <script src="app.js"></script>
 <script>
-  if ('serviceWorker' in navigator) {
+  if ('servicegator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
   }
 </script>
