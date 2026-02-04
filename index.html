@@ -6,7 +6,7 @@
   <title>CE - Control de Calidad (Offline)</title>
 
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0b5cab"/>
+  <meta name="theme-color" content="#F97316"/>
   <link rel="stylesheet" href="styles.css" />
 </head>
 
@@ -14,11 +14,12 @@
 <header class="app-header">
   <div class="brand">
     <div class="logo">CE</div>
-    <div>
+    <div class="brand-text">
       <div class="title">Control de Calidad - Sostenimiento</div>
-      <div class="subtitle">Funciona offline • Guarda en tu equipo</div>
+      <div class="subtitle">Offline • Datos guardados en el dispositivo</div>
     </div>
   </div>
+
   <div class="header-actions">
     <button id="btnExport" class="btn" type="button">Exportar</button>
     <label class="btn btn-secondary" for="importFile">Importar</label>
@@ -28,17 +29,20 @@
 
 <nav class="tabs" role="tablist" aria-label="Pestañas">
   <button class="tab active" data-tab="slump" role="tab" aria-selected="true">1. Slump y T°</button>
-  <button class="tab" data-tab="resist" role="tab" aria-selected="false">2. Resistencias Iniciales</button>
-  <button class="tab" data-tab="pernos" role="tab" aria-selected="false">3. Instalación de Pernos</button>
+  <button class="tab" data-tab="resist" role="tab" aria-selected="false">2. Resistencias</button>
+  <button class="tab" data-tab="pernos" role="tab" aria-selected="false">3. Pernos</button>
   <button class="tab" data-tab="bd" role="tab" aria-selected="false">4. Base de Datos</button>
   <button class="tab" data-tab="reporte" role="tab" aria-selected="false">5. Reporte</button>
 </nav>
 
 <main class="container">
+
   <!-- TAB 1 -->
   <section id="tab-slump" class="panel active" role="tabpanel">
-    <h2>Slump y Temperatura</h2>
-    <p class="muted">Registra los datos de control del slump y temperatura por turno.</p>
+    <div class="panel-head">
+      <h2>Slump y Temperatura</h2>
+      <p class="muted">Registra slump, temperatura, presión de aire y tiempos (HS / H_LL).</p>
+    </div>
 
     <form id="formSlump" class="card">
       <div class="grid">
@@ -50,6 +54,7 @@
           <label>Hora del Slump</label>
           <input type="time" name="horaSlump" required />
         </div>
+
         <div>
           <label>Labor</label>
           <input type="text" name="labor" placeholder="Ej. NV-520 Rampa 3" required />
@@ -60,49 +65,61 @@
         </div>
 
         <div>
-          <label>Medida de Slump (mm)</label>
+          <label>Slump (mm)</label>
           <input type="number" name="slump" min="0" step="1" placeholder="Ej. 80" required />
         </div>
         <div>
           <label>Temperatura (°C)</label>
           <input type="number" name="temp" step="0.1" placeholder="Ej. 18.5" required />
         </div>
-        <div>
-          <label>Presión de Aire</label>
-          <input type="number" name="presionAire" step="0.1" placeholder="Ej. 6.5 (bar)" required />
-          <small class="hint">Indica la unidad en Observaciones si no es bar.</small>
-        </div>
 
         <div>
-          <label>Nro de Mixer / HS (Hora de salida)</label>
+          <label>Presión de aire</label>
+          <input type="number" name="presionAire" step="0.1" placeholder="Ej. 6.5" required />
+          <small class="hint">Si no es bar, indícalo en observaciones.</small>
+        </div>
+        <div>
+          <label>Mixer / HS (Hora salida)</label>
           <input type="text" name="mixerHS" placeholder="Ej. Mixer 07 / 14:10" required />
         </div>
+
         <div>
-          <label>H_LL (Hora de llegada)</label>
+          <label>H_LL (Hora llegada)</label>
           <input type="time" name="hll" required />
         </div>
-
-        <div class="col-span-2">
+        <div>
           <label>Observaciones</label>
-          <textarea name="obs" rows="2" placeholder="Opcional"></textarea>
+          <input type="text" name="obs" placeholder="Opcional" />
         </div>
       </div>
 
       <div class="actions">
-        <button class="btn" type="submit">Guardar registro</button>
+        <button class="btn" type="submit">Guardar</button>
         <button class="btn btn-secondary" type="reset">Limpiar</button>
       </div>
 
       <div class="inline-status" id="slumpStatus" aria-live="polite"></div>
+
+      <div class="legend">
+        <span class="badge-chip ok">OK</span>
+        <span class="badge-chip warn">Bajo/Alto</span>
+        <span class="badge-chip bad">Alerta</span>
+        <span class="hint">Badges automáticos según rangos configurables.</span>
+      </div>
     </form>
 
     <div class="card">
-      <h3>Últimos registros (Slump)</h3>
+      <div class="card-head">
+        <h3>Últimos registros (Slump)</h3>
+        <p class="muted small">En celular se muestran como tarjetas.</p>
+      </div>
+
       <div class="table-wrap">
         <table class="table" id="slumpRecent">
           <thead>
             <tr>
-              <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th><th>Slump (mm)</th><th>T° (°C)</th><th>Presión Aire</th>
+              <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th>
+              <th>Slump</th><th>T°</th><th>Presión</th><th>Estado</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -113,8 +130,10 @@
 
   <!-- TAB 2 -->
   <section id="tab-resist" class="panel" role="tabpanel">
-    <h2>Resistencias Iniciales</h2>
-    <p class="muted">Registra resistencias iniciales/tempranas (por ejemplo a 30 min, 1 h, 3 h, etc.).</p>
+    <div class="panel-head">
+      <h2>Resistencias Iniciales</h2>
+      <p class="muted">Registra resistencias tempranas (edad + MPa).</p>
+    </div>
 
     <form id="formResist" class="card">
       <div class="grid">
@@ -126,6 +145,7 @@
           <label>Hora</label>
           <input type="time" name="hora" required />
         </div>
+
         <div>
           <label>Labor</label>
           <input type="text" name="labor" required />
@@ -134,28 +154,36 @@
           <label>Nivel</label>
           <input type="text" name="nivel" required />
         </div>
+
         <div>
-          <label>Edad del ensayo (min / h)</label>
+          <label>Edad (min / h)</label>
           <input type="text" name="edad" placeholder="Ej. 30 min, 1 h, 3 h" required />
         </div>
         <div>
           <label>Resistencia (MPa)</label>
           <input type="number" name="resistencia" step="0.01" min="0" placeholder="Ej. 1.25" required />
         </div>
+
         <div class="col-span-2">
           <label>Observaciones</label>
-          <textarea name="obs" rows="2" placeholder="Opcional"></textarea>
+          <input type="text" name="obs" placeholder="Opcional" />
         </div>
       </div>
+
       <div class="actions">
-        <button class="btn" type="submit">Guardar registro</button>
+        <button class="btn" type="submit">Guardar</button>
         <button class="btn btn-secondary" type="reset">Limpiar</button>
       </div>
+
       <div class="inline-status" id="resistStatus" aria-live="polite"></div>
     </form>
 
     <div class="card">
-      <h3>Últimos registros (Resistencias)</h3>
+      <div class="card-head">
+        <h3>Últimos registros (Resistencias)</h3>
+        <p class="muted small">Vista tipo cards en móvil.</p>
+      </div>
+
       <div class="table-wrap">
         <table class="table" id="resistRecent">
           <thead>
@@ -171,8 +199,10 @@
 
   <!-- TAB 3 -->
   <section id="tab-pernos" class="panel" role="tabpanel">
-    <h2>Instalación de Pernos</h2>
-    <p class="muted">Registra cantidad instalada por tipo.</p>
+    <div class="panel-head">
+      <h2>Instalación de Pernos</h2>
+      <p class="muted">Registra tipo y cantidad instalada por labor.</p>
+    </div>
 
     <form id="formPernos" class="card">
       <div class="grid">
@@ -184,6 +214,7 @@
           <label>Hora</label>
           <input type="time" name="hora" required />
         </div>
+
         <div>
           <label>Labor</label>
           <input type="text" name="labor" required />
@@ -199,7 +230,7 @@
             <label class="check"><input type="checkbox" id="chkHel" /> P. Helicoidal</label>
             <label class="check"><input type="checkbox" id="chkSw" /> P. Swellex</label>
           </div>
-          <small class="hint">Puedes marcar uno o ambos. Ingresa cantidades abajo.</small>
+          <small class="hint">Marca uno o ambos e ingresa cantidades.</small>
         </div>
 
         <div>
@@ -213,23 +244,29 @@
 
         <div class="col-span-2">
           <label>Observaciones</label>
-          <textarea name="obs" rows="2" placeholder="Opcional"></textarea>
+          <input type="text" name="obs" placeholder="Opcional" />
         </div>
       </div>
+
       <div class="actions">
-        <button class="btn" type="submit">Guardar registro</button>
+        <button class="btn" type="submit">Guardar</button>
         <button class="btn btn-secondary" type="reset">Limpiar</button>
       </div>
+
       <div class="inline-status" id="pernosStatus" aria-live="polite"></div>
     </form>
 
     <div class="card">
-      <h3>Últimos registros (Pernos)</h3>
+      <div class="card-head">
+        <h3>Últimos registros (Pernos)</h3>
+        <p class="muted small">Vista tipo cards en móvil.</p>
+      </div>
+
       <div class="table-wrap">
         <table class="table" id="pernosRecent">
           <thead>
             <tr>
-              <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th><th>Helicoidal</th><th>Swellex</th>
+              <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th><th>Helicoidal</th><th>Swellex</th><th>Estado</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -240,7 +277,11 @@
 
   <!-- TAB 4 -->
   <section id="tab-bd" class="panel" role="tabpanel">
-    <h2>Base de Datos (por fecha)</h2>
+    <div class="panel-head">
+      <h2>Base de Datos (por fecha)</h2>
+      <p class="muted">Filtra por rango y gestiona registros.</p>
+    </div>
+
     <div class="card">
       <div class="grid">
         <div>
@@ -251,22 +292,27 @@
           <label>Hasta</label>
           <input type="date" id="fHasta" />
         </div>
+
         <div class="col-span-2 actions left">
           <button id="btnFiltrar" class="btn" type="button">Filtrar</button>
           <button id="btnLimpiarFiltro" class="btn btn-secondary" type="button">Ver todo</button>
           <button id="btnBorrarTodo" class="btn btn-danger" type="button">Borrar TODO</button>
         </div>
       </div>
-      <p class="hint">Consejo: Exporta antes de borrar todo.</p>
+      <p class="hint">Recomendación: Exporta antes de borrar toda la base de datos.</p>
     </div>
 
     <div class="card">
-      <h3>Slump y T°</h3>
+      <div class="card-head">
+        <h3>Slump y T°</h3>
+        <p class="muted small">Vista tipo cards en móvil + badges.</p>
+      </div>
+
       <div class="table-wrap">
         <table class="table" id="tblSlump">
           <thead>
             <tr>
-              <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th><th>Slump</th><th>T°</th><th>Presión Aire</th><th>Mixer/HS</th><th>H_LL</th><th></th>
+              <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th><th>Slump</th><th>T°</th><th>Presión</th><th>Mixer/HS</th><th>H_LL</th><th>Estado</th><th></th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -275,7 +321,11 @@
     </div>
 
     <div class="card">
-      <h3>Resistencias Iniciales</h3>
+      <div class="card-head">
+        <h3>Resistencias Iniciales</h3>
+        <p class="muted small">Vista tipo cards en móvil.</p>
+      </div>
+
       <div class="table-wrap">
         <table class="table" id="tblResist">
           <thead>
@@ -289,24 +339,31 @@
     </div>
 
     <div class="card">
-      <h3>Instalación de Pernos</h3>
+      <div class="card-head">
+        <h3>Instalación de Pernos</h3>
+        <p class="muted small">Vista tipo cards en móvil + badges.</p>
+      </div>
+
       <div class="table-wrap">
         <table class="table" id="tblPernos">
           <thead>
             <tr>
-              <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th><th>Helicoidal</th><th>Swellex</th><th></th>
+              <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th><th>Helicoidal</th><th>Swellex</th><th>Estado</th><th></th>
             </tr>
           </thead>
           <tbody></tbody>
         </table>
       </div>
     </div>
+
   </section>
 
   <!-- TAB 5 -->
   <section id="tab-reporte" class="panel" role="tabpanel">
-    <h2>Reporte (Gráficos)</h2>
-    <p class="muted">Gráficos de barras por <strong>Labor</strong>: Slump promedio, Temperatura promedio, Presión de aire promedio y Pernos instalados.</p>
+    <div class="panel-head">
+      <h2>Reporte (Gráficos)</h2>
+      <p class="muted">Barras por <strong>Labor</strong>: Slump prom., T° prom., Presión prom. y total de pernos.</p>
+    </div>
 
     <div class="card">
       <div class="grid">
@@ -328,20 +385,23 @@
     <div class="grid-2">
       <div class="card">
         <h3>Slump promedio (mm) por Labor</h3>
-        <canvas id="chartSlump" width="600" height="360" aria-label="Slump por labor" role="img"></canvas>
+        <canvas id="chartSlump" width="600" height="360"></canvas>
       </div>
+
       <div class="card">
         <h3>Temperatura promedio (°C) por Labor</h3>
-        <canvas id="chartTemp" width="600" height="360" aria-label="Temperatura por labor" role="img"></canvas>
+        <canvas id="chartTemp" width="600" height="360"></canvas>
       </div>
+
       <div class="card">
-        <h3>Presión de Aire promedio por Labor</h3>
-        <canvas id="chartAire" width="600" height="360" aria-label="Presión de aire por labor" role="img"></canvas>
+        <h3>Presión de aire promedio por Labor</h3>
+        <canvas id="chartAire" width="600" height="360"></canvas>
       </div>
+
       <div class="card">
         <h3>Pernos instalados (unid.) por Labor</h3>
-        <canvas id="chartPernos" width="600" height="360" aria-label="Pernos por labor" role="img"></canvas>
-        <p class="hint">El gráfico suma Helicoidal + Swellex por labor.</p>
+        <canvas id="chartPernos" width="600" height="360"></canvas>
+        <p class="hint">Se suma Helicoidal + Swellex por labor.</p>
       </div>
     </div>
 
@@ -350,10 +410,11 @@
       <div id="resumenReporte" class="muted"></div>
     </div>
   </section>
+
 </main>
 
 <footer class="footer">
-  <span>CE Offline • Datos guardados localmente (IndexedDB)</span>
+  <span>CE Offline • IndexedDB • Export/Import</span>
   <span id="offlineBadge" class="badge">Online</span>
 </footer>
 
