@@ -1,11 +1,4 @@
-/* ==========================================================
-   CE Offline - Tema Profesional (Plomo + Naranja)
-   + Responsive móvil con tablas en modo "cards"
-   + Badges (OK/WARN/ALERTA)
-   ========================================================== */
-
 :root{
-  /* Base plomo */
   --bg:#F3F4F6;
   --bg2:#E5E7EB;
   --surface:#FFFFFF;
@@ -14,22 +7,17 @@
   --muted:#6B7280;
   --border: rgba(17,24,39,.12);
 
-  /* Naranja */
   --accent:#F97316;
   --accent2:#FB923C;
   --accentSoft: rgba(249,115,22,.14);
 
-  /* Estados */
   --danger:#EF4444;
   --warn:#F59E0B;
   --ok:#16A34A;
 
-  /* Sombras */
   --shadow: 0 12px 32px rgba(0,0,0,.07);
   --shadowSm: 0 8px 18px rgba(0,0,0,.06);
 
-  /* Radios */
-  --r14:14px;
   --r18:18px;
   --r22:22px;
 
@@ -70,7 +58,6 @@ body{
   gap:12px;
   align-items:center;
 }
-
 .logo{
   width:46px;
   height:46px;
@@ -83,18 +70,8 @@ body{
   background: linear-gradient(135deg, var(--accent), var(--accent2));
   box-shadow: 0 14px 26px rgba(249,115,22,.28);
 }
-
-.title{
-  font-weight: 900;
-  letter-spacing: .2px;
-  line-height:1.1;
-}
-
-.subtitle{
-  font-size:12px;
-  color: var(--muted);
-  margin-top:2px;
-}
+.title{ font-weight: 900; line-height:1.1; }
+.subtitle{ font-size:12px; color: var(--muted); margin-top:2px; }
 
 .header-actions{
   display:flex;
@@ -110,16 +87,15 @@ body{
   padding: 0 12px 26px;
 }
 
-.panel-head{
-  margin: 10px 2px 6px;
-}
-
+.panel-head{ margin: 10px 2px 6px; }
 h2{ margin: 10px 0 6px; }
 h3{ margin: 0 0 10px; }
 
 .muted{ color: var(--muted); }
-.small{ font-size: 12px; }
 .hint{ color: var(--muted); font-size: 12px; }
+.small{ font-size:12px; }
+
+.mt-12{ margin-top:12px; }
 
 /* TABS */
 .tabs{
@@ -130,9 +106,7 @@ h3{ margin: 0 0 10px; }
   border-bottom:1px solid var(--border);
   background: rgba(255,255,255,.62);
 }
-
 .tab{
-  appearance:none;
   border: 1px solid rgba(17,24,39,.12);
   background: rgba(255,255,255,.90);
   color: var(--text);
@@ -145,14 +119,13 @@ h3{ margin: 0 0 10px; }
 }
 .tab:hover{ box-shadow: var(--shadowSm); }
 .tab:active{ transform: translateY(1px); }
-
 .tab.active{
   background: var(--accentSoft);
   border-color: rgba(249,115,22,.45);
   box-shadow: 0 14px 28px rgba(249,115,22,.18);
 }
 
-/* Tabs scroll en móvil */
+/* tabs scroll móvil */
 @media (max-width: 680px){
   .tabs{
     flex-wrap: nowrap;
@@ -177,15 +150,6 @@ h3{ margin: 0 0 10px; }
   box-shadow: var(--shadow);
 }
 
-.card-head{
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-end;
-  gap:10px;
-  flex-wrap:wrap;
-}
-
-/* GRIDS */
 .grid{
   display:grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -194,19 +158,27 @@ h3{ margin: 0 0 10px; }
 .grid-2{
   display:grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap:14px;
+  gap:12px;
+}
+.grid-4{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap:12px;
 }
 .col-span-2{ grid-column: span 2; }
 
+@media (max-width: 980px){
+  .grid-4{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (max-width: 900px){
-  .grid-2{ grid-template-columns: 1fr; }
+  .grid{ grid-template-columns: 1fr; }
 }
 @media (max-width: 680px){
-  .grid{ grid-template-columns: 1fr; }
+  .grid, .grid-2, .grid-4{ grid-template-columns: 1fr; }
   .col-span-2{ grid-column: auto; }
 }
 
-/* FORMS */
+/* FORM */
 label{
   display:block;
   font-size:13px;
@@ -214,8 +186,7 @@ label{
   font-weight: 900;
   color: rgba(17,24,39,.92);
 }
-
-input, textarea{
+input{
   width:100%;
   padding: 11px 12px;
   border-radius: 16px;
@@ -225,18 +196,12 @@ input, textarea{
   outline: none;
   transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
 }
-textarea{ resize: vertical; }
-
-input:focus, textarea:focus{
+input:focus{
   border-color: rgba(249,115,22,.62);
   box-shadow: 0 0 0 4px rgba(249,115,22,.18);
   background: #fff;
 }
-
-input:disabled{
-  opacity:.62;
-  cursor:not-allowed;
-}
+input:disabled{ opacity:.62; cursor:not-allowed; }
 
 /* BUTTONS */
 .actions{
@@ -249,7 +214,6 @@ input:disabled{
 .actions.left{ justify-content:flex-start; }
 
 .btn{
-  appearance:none;
   border:0;
   border-radius: 999px;
   padding: 10px 14px;
@@ -258,62 +222,30 @@ input:disabled{
   color:#fff;
   background: linear-gradient(135deg, var(--accent), var(--accent2));
   box-shadow: 0 14px 24px rgba(249,115,22,.25);
-  transition: transform .06s ease, box-shadow .2s ease, filter .2s ease;
 }
-.btn:hover{
-  filter: brightness(1.03);
-  box-shadow: 0 18px 30px rgba(249,115,22,.28);
-}
-.btn:active{ transform: translateY(1px); }
-
+.btn:hover{ filter: brightness(1.03); }
 .btn-secondary{
   background:#fff;
   color: var(--text);
   border: 1px solid rgba(249,115,22,.38);
   box-shadow: none;
 }
-.btn-secondary:hover{
-  background: rgba(249,115,22,.07);
-  box-shadow: var(--shadowSm);
-}
-
 .btn-danger{
   background: linear-gradient(135deg, #EF4444, #F87171);
-  box-shadow: 0 14px 24px rgba(239,68,68,.18);
-}
-.btn-danger:hover{
-  box-shadow: 0 18px 30px rgba(239,68,68,.22);
 }
 
 /* CHECKS */
-.checks{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-}
+.checks{ display:flex; gap:10px; flex-wrap:wrap; }
 .check{
-  display:flex;
-  align-items:center;
-  gap:10px;
+  display:flex; align-items:center; gap:10px;
   padding: 10px 12px;
   border: 1px solid rgba(17,24,39,.12);
   border-radius: 16px;
   background: rgba(249,115,22,.06);
 }
-.check input{
-  width:18px;
-  height:18px;
-  accent-color: var(--accent);
-}
+.check input{ width:18px; height:18px; accent-color: var(--accent); }
 
-/* LEGEND */
-.legend{
-  margin-top: 10px;
-  display:flex;
-  align-items:center;
-  gap:10px;
-  flex-wrap:wrap;
-}
+.inline-status{ margin-top: 10px; font-size: 13px; color: var(--muted); }
 
 /* TABLES */
 .table-wrap{
@@ -322,7 +254,6 @@ input:disabled{
   border: 1px solid rgba(17,24,39,.12);
   background:#fff;
 }
-
 .table{
   width:100%;
   border-collapse: collapse;
@@ -332,7 +263,6 @@ input:disabled{
   padding: 10px;
   border-bottom: 1px solid rgba(17,24,39,.10);
   font-size: 13px;
-  vertical-align: top;
 }
 .table th{
   position: sticky;
@@ -345,27 +275,18 @@ input:disabled{
   background: rgba(249,115,22,.06);
 }
 
-/* ✅ MÓVIL: convertir tablas a “cards” */
+/* ✅ MÓVIL: tabla → tarjetas */
 @media (max-width: 680px){
-  .table{
-    min-width: 0;
-    border-collapse: separate;
-    border-spacing: 0 12px;
-  }
-
-  .table thead{
-    display:none;
-  }
-
+  .table{ min-width: 0; border-collapse: separate; border-spacing: 0 12px; }
+  .table thead{ display:none; }
   .table tr{
     display:block;
-    background: #fff;
+    background:#fff;
     border: 1px solid rgba(17,24,39,.12);
     border-radius: 18px;
     box-shadow: var(--shadowSm);
     overflow:hidden;
   }
-
   .table td{
     display:flex;
     justify-content:space-between;
@@ -373,72 +294,28 @@ input:disabled{
     padding: 10px 12px;
     border-bottom: 1px dashed rgba(17,24,39,.10);
   }
-  .table td:last-child{
-    border-bottom: none;
-  }
-
+  .table td:last-child{ border-bottom:none; }
   .table td::before{
     content: attr(data-label);
     font-weight: 900;
     color: rgba(17,24,39,.75);
-    max-width: 42%;
-    flex: 0 0 42%;
+    max-width: 44%;
+    flex: 0 0 44%;
   }
-
-  .table td .cell-right{
-    text-align:right;
-    flex: 1 1 auto;
-  }
+  .table td .cell-right{ text-align:right; flex: 1 1 auto; }
 }
 
-/* STATUS TEXT */
-.inline-status{
-  margin-top: 10px;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-/* BADGE (Online/Offline) */
-.footer{
-  display:flex;
-  justify-content:space-between;
-  gap:12px;
-  padding: 10px 12px;
-  border-top: 1px solid var(--border);
-  color: var(--muted);
-  background: rgba(255,255,255,.62);
-}
-
-.badge{
-  padding: 5px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(17,24,39,.14);
-  background: rgba(255,255,255,.9);
-  font-weight: 900;
-}
-
-.badge.offline{
-  border-color: rgba(239,68,68,.35);
-  color: #B91C1C;
-  background: rgba(239,68,68,.10);
-}
-.badge.online{
-  border-color: rgba(249,115,22,.38);
-  color: #9A3412;
-  background: rgba(249,115,22,.12);
-}
-
-/* BADGES (OK/WARN/BAD) */
+/* BADGES */
 .badge-chip{
   display:inline-flex;
   align-items:center;
-  gap:6px;
   padding: 5px 10px;
   border-radius: 999px;
   font-weight: 900;
   font-size: 12px;
   border: 1px solid transparent;
   white-space: nowrap;
+  margin-right:6px;
 }
 .badge-chip.ok{
   color: #0F5132;
@@ -461,7 +338,7 @@ input:disabled{
   border-color: rgba(17,24,39,.12);
 }
 
-/* CHARTS */
+/* CANVAS */
 canvas{
   width:100%;
   height:auto;
@@ -470,48 +347,39 @@ canvas{
   background: #fff;
 }
 
-    <div class="grid-2">
-      <div class="card">
-        <h3>Slump promedio (mm) por Labor</h3>
-        <canvas id="chartSlump" width="600" height="360"></canvas>
-      </div>
+/* FOOTER */
+.footer{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  background: rgba(255,255,255,.62);
+}
+.badge{
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(17,24,39,.14);
+  background: rgba(255,255,255,.9);
+  font-weight: 900;
+}
+.badge.offline{
+  border-color: rgba(239,68,68,.35);
+  color: #B91C1C;
+  background: rgba(239,68,68,.10);
+}
+.badge.online{
+  border-color: rgba(249,115,22,.38);
+  color: #9A3412;
+  background: rgba(249,115,22,.12);
+}
 
-      <div class="card">
-        <h3>Temperatura promedio (°C) por Labor</h3>
-        <canvas id="chartTemp" width="600" height="360"></canvas>
-      </div>
-
-      <div class="card">
-        <h3>Presión de aire promedio por Labor</h3>
-        <canvas id="chartAire" width="600" height="360"></canvas>
-      </div>
-
-      <div class="card">
-        <h3>Pernos instalados (unid.) por Labor</h3>
-        <canvas id="chartPernos" width="600" height="360"></canvas>
-        <p class="hint">Se suma Helicoidal + Swellex por labor.</p>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>Resumen</h3>
-      <div id="resumenReporte" class="muted"></div>
-    </div>
-  </section>
-
-</main>
-
-<footer class="footer">
-  <span>CE Offline • IndexedDB • Export/Import</span>
-  <span id="offlineBadge" class="badge">Online</span>
-</footer>
-
-<script src="app.js"></script>
-<script>
-  // Registro del Service Worker (PWA)
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
-  }
-</script>
-</body>
-</html>
+/* ==========================
+   PRINT VIEW (PDF)
+   ========================== */
+@media print{
+  body{ background:#fff !important; }
+  .app-header, .tabs, .footer, .btn, .btn-secondary, .btn-danger { display:none !important; }
+  .card{ box-shadow:none !important; border:1px solid #ddd !important; }
+}
