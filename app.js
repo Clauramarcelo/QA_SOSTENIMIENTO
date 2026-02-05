@@ -1,5 +1,6 @@
 // CE - Control de Calidad (Offline)
-// app.js: Horas ordenadas + Demora, BD por mes, Reporte diario por día, fallback gráfico offline PRO
+// app.js: Slump (demora), BD por mes, Reporte diario,
+// Resistencias Método A (10 N máximos -> N̄ -> MPa = (N̄-27)/526) + actualización gráfico Python
 
 /**********************
  * CONFIG
@@ -78,7 +79,7 @@ function calcDelayMin(hll, hs){
 }
 
 /**********************
- * Slump parser (pulgadas: 9 3/4, 7/8, 9.75)
+ * Slump parser (pulgadas)
  **********************/
 function parseInchFraction(input){
   if(input === null || input === undefined) return null;
@@ -87,22 +88,16 @@ function parseInchFraction(input){
   s = s.replace(/[\"”″]/g,'').trim();
   s = s.replace(/\s+/g,' ');
 
-  // decimal
   if(/^\d+(\.\d+)?$/.test(s)){
     const v = Number(s);
     return { value: v, text: `${formatNum(v)}\"` };
   }
 
-  // a b/c or b/c
   const parts = s.split(' ');
   let whole = 0, frac = null;
-  if(parts.length === 1){
-    frac = parts[0];
-  } else if(parts.length === 2){
-    whole = Number(parts[0]);
-    frac  = parts[1];
-    if(Number.isNaN(whole)) return null;
-  } else return null;
+  if(parts.length === 1){ frac = parts[0]; }
+  else if(parts.length === 2){ whole = Number(parts[0]); frac = parts[1]; if(Number.isNaN(whole)) return null; }
+  else return null;
 
   const m = /^(\d+)\s*\/\s*(\d+)$/.exec(frac);
   if(!m) return null;
@@ -178,7 +173,7 @@ function getAll(store){
 }
 
 /**********************
- * Export para PyScript (usa rango; en reporte diario se pasa day,day)
+ * Export para PyScript
  **********************/
 window.ceExportData = async function(desdeIso, hastaIso){
   const [slump, resist, pernos] = await Promise.all([
@@ -239,6 +234,27 @@ function showTab(name){
     }
   });
   localStorage.setItem('ce_last_tab', name);
+}
+
+/**********************
+ * Resistencias Método A: 10 N máximos -> N̄ -> MPa
+ * MPa = (N̄ - 27) / 526
+ **********************/
+function parseNList(text){
+  if(!text) return [];
+  return String(text)
+    .replace(/,/g,' ')
+    .replace(/;/g,' ')
+    .replace(/\s+/g,' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean)
+    .map(Number)
+    .filter(v => !Number.isNaN(v));
+}
+function mpaFromNprom(nProm){
+  const mpa = (nProm - 27) / 526;
+  return Math.max(0, mpa);
 }
 
 /**********************
@@ -358,185 +374,33 @@ async function updateKPIs(dayIso){
 }
 
 /**********************
- * Fallback gráfico offline (BARRAS SUPER PRO, NO GRUESAS)
- **********************/
-function groupMean(rows, keyGroup, keyValue){
-  const m = new Map();
-  for(const r of rows){
-    const k = (r[keyGroup] ?? '').trim() || '—';
-    const v = Number(r[keyValue]);
-    if(Number.isNaN(v)) continue;
-    if(!m.has(k)) m.set(k, {k, sum:0, n:0});
-    const o = m.get(k);
-    o.sum += v; o.n += 1;
-  }
-  const out = [...m.values()].map(o=>({ labor:o.k, value:o.n? o.sum/o.n : 0 }));
-  out.sort((a,b)=> a.value - b.value);
-  return out.slice(-12);
-}
-
-function roundRect(ctx, x, y, w, h, r){
-  const rr = Math.min(r, w/2, h/2);
-  ctx.beginPath();
-  ctx.moveTo(x+rr, y);
-  ctx.arcTo(x+w, y, x+w, y+h, rr);
-  ctx.arcTo(x+w, y+h, x, y+h, rr);
-  ctx.arcTo(x, y+h, x, y, rr);
-  ctx.arcTo(x, y, x+w, y, rr);
-  ctx.closePath();
-}
-
-function drawBarVertical(canvas, items, title, unit=''){
-  if(!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-
-  ctx.clearRect(0,0,W,H);
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0,0,W,H);
-
-  if(!items.length){
-    ctx.fillStyle = '#6B7280';
-    ctx.font = '800 22px system-ui';
-    ctx.fillText('Sin datos para el día seleccionado', 40, 80);
-    return;
-  }
-
-  const margin = {l: 72, r: 26, t: 52, b: 150};
-  const iw = W - margin.l - margin.r;
-  const ih = H - margin.t - margin.b;
-
-  // Título
-  ctx.fillStyle = '#111827';
-  ctx.font = '900 18px system-ui';
-  ctx.textAlign = 'left';
-  ctx.fillText(title, margin.l, 30);
-
-  const maxV = Math.max(...items.map(d=>d.value), 1);
-  const n = items.length;
-
-  // Barras finas: cap máximo + gap dinámico
-  const maxBarW = 44;
-  const minGap  = 14;
-
-  let barW = Math.min(maxBarW, (iw / n) * 0.60);
-  let gap  = Math.max(minGap, (iw - (barW*n)) / Math.max(1, n-1));
-
-  const totalW = barW*n + gap*(n-1);
-  const startX = margin.l + Math.max(0, (iw - totalW)/2);
-
-  // Grid Y
-  ctx.strokeStyle = 'rgba(17,24,39,.10)';
-  ctx.lineWidth = 1;
-  const gridLines = 4;
-  for(let i=0;i<=gridLines;i++){
-    const y = margin.t + (ih*i/gridLines);
-    ctx.beginPath();
-    ctx.moveTo(margin.l, y);
-    ctx.lineTo(W - margin.r, y);
-    ctx.stroke();
-
-    const val = maxV * (1 - i/gridLines);
-    ctx.fillStyle = 'rgba(17,24,39,.55)';
-    ctx.font = '700 12px system-ui';
-    ctx.textAlign = 'left';
-    ctx.fillText(val.toFixed(1), 12, y+4);
-  }
-
-  // Barras
-  for(let i=0;i<n;i++){
-    const d = items[i];
-    const x = startX + i*(barW + gap);
-    const h = (d.value / maxV) * ih;
-    const y = margin.t + (ih - h);
-
-    const grad = ctx.createLinearGradient(0, y, 0, y+h);
-    grad.addColorStop(0, 'rgba(251,146,60,.95)');
-    grad.addColorStop(1, 'rgba(249,115,22,.85)');
-
-    ctx.fillStyle = grad;
-    ctx.strokeStyle = 'rgba(154,52,18,.55)';
-    ctx.lineWidth = 1.1;
-
-    roundRect(ctx, x, y, barW, h, 10);
-    ctx.fill();
-    ctx.stroke();
-
-    // valor
-    ctx.fillStyle = '#111827';
-    ctx.font = '800 12px system-ui';
-    ctx.textAlign = 'center';
-    ctx.fillText(d.value.toFixed(2), x + barW/2, y - 10);
-
-    // label
-    ctx.save();
-    ctx.translate(x + barW/2, H - margin.b + 118);
-    ctx.rotate(-0.62);
-    ctx.fillStyle = 'rgba(17,24,39,.92)';
-    ctx.font = '800 12px system-ui';
-    ctx.textAlign = 'left';
-    const lab = d.labor.length > 24 ? d.labor.slice(0,23)+'…' : d.labor;
-    ctx.fillText(lab, -70, 0);
-    ctx.restore();
-  }
-
-  // unidad
-  if(unit){
-    ctx.fillStyle = 'rgba(17,24,39,.75)';
-    ctx.font = '800 12px system-ui';
-    ctx.textAlign = 'right';
-    ctx.fillText(unit, W - margin.r, 30);
-  }
-
-  ctx.textAlign = 'left';
-}
-
-async function drawFallbackCharts(dayIso){
-  const data = await window.ceExportData(dayIso, dayIso);
-  const slump = data.slump || [];
-
-  // normaliza slumpValue si falta (datos antiguos)
-  for(const r of slump){
-    if(r.slumpValue === undefined || r.slumpValue === null || Number.isNaN(Number(r.slumpValue))){
-      const p = parseInchFraction(r.slumpIn);
-      if(p) r.slumpValue = p.value;
-    }
-  }
-
-  const bySlump = groupMean(slump, 'labor', 'slumpValue');
-  const byAire  = groupMean(slump, 'labor', 'presionAire');
-
-  const imgS = $('#chartSlumpImg');
-  const imgA = $('#chartAireImg');
-  const cvS  = $('#chartSlumpCv');
-  const cvA  = $('#chartAireCv');
-
-  if(imgS) imgS.style.display = 'none';
-  if(imgA) imgA.style.display = 'none';
-  if(cvS)  cvS.style.display  = 'block';
-  if(cvA)  cvA.style.display  = 'block';
-
-  drawBarVertical(cvS, bySlump, 'Slump promedio por labor', 'pulgadas (")');
-  drawBarVertical(cvA,  byAire, 'Presión de aire promedio por labor', 'presión');
-}
-
-/**********************
- * Init & wiring
+ * Wiring
  **********************/
 function initDefaults(){
   const d = todayISO();
-  $('#formSlump input[name="fecha"]').value = d;
-  $('#formResist input[name="fecha"]').value = d;
-  $('#formPernos input[name="fecha"]').value = d;
 
-  $('#formSlump input[name="horaSlump"]').value = nowHHMM();
-  $('#formSlump input[name="demora"]').value = '';
+  const sFecha = $('#formSlump input[name="fecha"]');
+  const rFecha = $('#formResist input[name="fecha"]');
+  const pFecha = $('#formPernos input[name="fecha"]');
 
-  $('#formResist input[name="hora"]').value = nowHHMM();
-  $('#formPernos input[name="hora"]').value = nowHHMM();
+  if(sFecha) sFecha.value = d;
+  if(rFecha) rFecha.value = d;
+  if(pFecha) pFecha.value = d;
 
-  $('#fMes').value = thisMonth();
-  $('#rDia').value = d;
+  const sHoraSl = $('#formSlump input[name="horaSlump"]');
+  const sDemora = $('#formSlump input[name="demora"]');
+  if(sHoraSl) sHoraSl.value = nowHHMM();
+  if(sDemora) sDemora.value = '';
+
+  const rHora = $('#formResist input[name="hora"]');
+  const pHora = $('#formPernos input[name="hora"]');
+  if(rHora) rHora.value = nowHHMM();
+  if(pHora) pHora.value = nowHHMM();
+
+  const mes = $('#fMes');
+  const dia = $('#rDia');
+  if(mes) mes.value = thisMonth();
+  if(dia) dia.value = d;
 }
 
 function wireTabs(){
@@ -552,16 +416,19 @@ function wirePernosChecks(){
   const inSw   = $('#cantSw');
 
   function sync(){
-    const helOn = !!chkHel.checked;
-    const swOn  = !!chkSw.checked;
-    inHel.disabled = !helOn;
-    inSw.disabled  = !swOn;
-    if(!helOn) inHel.value = 0;
-    if(!swOn)  inSw.value  = 0;
+    const helOn = !!chkHel?.checked;
+    const swOn  = !!chkSw?.checked;
+    if(inHel){
+      inHel.disabled = !helOn;
+      if(!helOn) inHel.value = 0;
+    }
+    if(inSw){
+      inSw.disabled = !swOn;
+      if(!swOn) inSw.value = 0;
+    }
   }
-
-  chkHel.addEventListener('change', sync);
-  chkSw.addEventListener('change', sync);
+  chkHel?.addEventListener('change', sync);
+  chkSw?.addEventListener('change', sync);
   sync();
 }
 
@@ -569,12 +436,12 @@ function wireSlumpDelay(){
   const hs  = $('#formSlump input[name="hsOut"]');
   const hll = $('#formSlump input[name="hll"]');
   const out = $('#formSlump input[name="demora"]');
+  if(!hs || !hll || !out) return;
 
   function recalc(){
     const dmin = calcDelayMin(hll.value, hs.value);
     out.value = (dmin === null) ? '' : `${minToHHMM(dmin)} (${dmin} min)`;
   }
-
   hs.addEventListener('input', recalc);
   hll.addEventListener('input', recalc);
 }
@@ -590,8 +457,8 @@ function wireDeletes(){
     if(!confirm('¿Eliminar este registro?')) return;
     await deleteRecord(store, id);
 
-    await renderBD($('#fMes').value || '');
-    await updateKPIs($('#rDia').value || '');
+    await renderBD($('#fMes')?.value || '');
+    await updateKPIs($('#rDia')?.value || '');
     toast('Registro eliminado', 'ok');
   });
 }
@@ -600,7 +467,8 @@ function wireForms(){
   // Slump
   const fSlump = $('#formSlump');
   const stSlump= $('#slumpStatus');
-  fSlump.addEventListener('submit', async (e)=>{
+
+  fSlump?.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const fd = new FormData(fSlump);
 
@@ -646,45 +514,71 @@ function wireForms(){
     fSlump.reset();
     fSlump.querySelector('input[name="fecha"]').value = todayISO();
     fSlump.querySelector('input[name="horaSlump"]').value = nowHHMM();
-    fSlump.querySelector('input[name="demora"]').value = '';
+    const dem = fSlump.querySelector('input[name="demora"]');
+    if(dem) dem.value = '';
 
-    await renderBD($('#fMes').value || '');
+    await renderBD($('#fMes')?.value || '');
   });
 
-  // Resist
+  // Resistencias Método A (10 N máximos)
   const fRes = $('#formResist');
   const stRes= $('#resistStatus');
-  fRes.addEventListener('submit', async (e)=>{
+
+  fRes?.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const fd = new FormData(fRes);
+
+    const nList = parseNList(fd.get('incadosN'));
+    if(nList.length !== 10){
+      setStatus(stRes, 'Ingresa EXACTAMENTE 10 incados en N (Método A).', 3500);
+      toast('Faltan incados (deben ser 10)', 'err');
+      return;
+    }
+
+    const nProm = nList.reduce((a,b)=>a+b,0) / 10;
+    const resistenciaMPa = mpaFromNprom(nProm);
+
     const rec = {
       fecha: fd.get('fecha'),
       hora: fd.get('hora'),
       labor: String(fd.get('labor')||'').trim(),
       nivel: String(fd.get('nivel')||'').trim(),
       edad: String(fd.get('edad')||'').trim(),
-      resistencia: Number(fd.get('resistencia')),
+      resistencia: resistenciaMPa,
+      nProm,
+      nList,
       obs: String(fd.get('obs')||'').trim()
     };
+
     await addRecord('resist', rec);
-    setStatus(stRes, 'Guardado ✅', 3000);
-    toast('Resistencia guardada ✅','ok');
+    setStatus(stRes, `Guardado ✅  N̄=${nProm.toFixed(1)} N  →  MPa=${resistenciaMPa.toFixed(2)}`, 4500);
+    toast('Resistencia (Método A) guardada ✅', 'ok');
 
     fRes.reset();
     fRes.querySelector('input[name="fecha"]').value = todayISO();
     fRes.querySelector('input[name="hora"]').value = nowHHMM();
 
-    await renderBD($('#fMes').value || '');
+    await renderBD($('#fMes')?.value || '');
+
+    // Actualiza gráfico Resistencias (Python) para ese día
+    try{
+      const fecha = rec.fecha;
+      if(typeof window.runPythonResist === 'function'){
+        await window.runPythonResist(fecha, fecha);
+      }
+    } catch(_){}
   });
 
   // Pernos
   const fPer = $('#formPernos');
   const stPer= $('#pernosStatus');
-  fPer.addEventListener('submit', async (e)=>{
+
+  fPer?.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const fd = new FormData(fPer);
-    const helOn = $('#chkHel').checked;
-    const swOn  = $('#chkSw').checked;
+
+    const helOn = $('#chkHel')?.checked;
+    const swOn  = $('#chkSw')?.checked;
 
     if(!helOn && !swOn){
       setStatus(stPer, 'Selecciona al menos un tipo de perno.', 3500);
@@ -710,30 +604,31 @@ function wireForms(){
     fPer.querySelector('input[name="fecha"]').value = todayISO();
     fPer.querySelector('input[name="hora"]').value = nowHHMM();
 
-    $('#chkHel').checked = false;
-    $('#chkSw').checked  = false;
+    if($('#chkHel')) $('#chkHel').checked = false;
+    if($('#chkSw'))  $('#chkSw').checked  = false;
     wirePernosChecks();
 
-    await renderBD($('#fMes').value || '');
-    await updateKPIs($('#rDia').value || '');
+    await renderBD($('#fMes')?.value || '');
+    await updateKPIs($('#rDia')?.value || '');
   });
 }
 
 function wireBDButtons(){
-  $('#btnFiltrar').addEventListener('click', async ()=>{
-    await renderBD($('#fMes').value || '');
+  $('#btnFiltrar')?.addEventListener('click', async ()=>{
+    await renderBD($('#fMes')?.value || '');
     toast('Mes aplicado','ok');
   });
 
-  $('#btnLimpiarFiltro').addEventListener('click', async ()=>{
-    $('#fMes').value = '';
+  $('#btnLimpiarFiltro')?.addEventListener('click', async ()=>{
+    const mes = $('#fMes');
+    if(mes) mes.value = '';
     await renderBD('');
     toast('Mostrando todo','ok');
   });
 
-  $('#btnBDPDF').addEventListener('click', ()=> window.print());
+  $('#btnBDPDF')?.addEventListener('click', ()=> window.print());
 
-  $('#btnBorrarTodo').addEventListener('click', async ()=>{
+  $('#btnBorrarTodo')?.addEventListener('click', async ()=>{
     const ok = confirm('¿Borrar TODA la base de datos? Esta acción no se puede deshacer.');
     if(!ok) return;
     const ok2 = confirm('Confirmación final: ¿Seguro que deseas borrar TODO?');
@@ -741,54 +636,49 @@ function wireBDButtons(){
 
     await Promise.all([clearStore('slump'), clearStore('resist'), clearStore('pernos')]);
     await renderBD('');
-    await updateKPIs($('#rDia').value || '');
+    await updateKPIs($('#rDia')?.value || '');
 
     $('#chartSlumpImg')?.removeAttribute('src');
     $('#chartAireImg')?.removeAttribute('src');
+    $('#chartResistImg')?.removeAttribute('src');
 
     toast('Base de datos borrada','warn');
   });
 }
 
 function wireReportButtons(){
-  $('#btnReporte').addEventListener('click', async ()=>{
-    const day = $('#rDia').value || todayISO();
-    $('#rDia').value = day;
+  $('#btnReporte')?.addEventListener('click', async ()=>{
+    const day = $('#rDia')?.value || todayISO();
+    if($('#rDia')) $('#rDia').value = day;
+
     await updateKPIs(day);
 
-    // intento Python
-    if(typeof window.runPythonReport === 'function'){
-      try{
-        await window.runPythonReport(day, day);
-        const s = $('#chartSlumpImg')?.getAttribute('src');
-        const a = $('#chartAireImg')?.getAttribute('src');
-        if(s || a){
-          $('#chartSlumpImg').style.display='block';
-          $('#chartAireImg').style.display='block';
-          $('#chartSlumpCv').style.display='none';
-          $('#chartAireCv').style.display='none';
-          toast('Gráficos Python listos ✅','ok');
-          return;
-        }
-      } catch(err){ console.warn(err); }
-    }
+    // Gráficos reporte (Python)
+    try{ if(typeof window.runPythonReport === 'function') await window.runPythonReport(day, day); } catch(e){ console.warn(e); }
+    // Gráfico resistencias (Python)
+    try{ if(typeof window.runPythonResist === 'function') await window.runPythonResist(day, day); } catch(e){ console.warn(e); }
 
-    // fallback offline
-    await drawFallbackCharts(day);
-    toast('Modo offline: gráfico alternativo ✅','warn');
+    toast('Reporte actualizado ✅','ok');
   });
 
-  $('#btnReporteTodo').addEventListener('click', async ()=>{
+  $('#btnReporteTodo')?.addEventListener('click', async ()=>{
     const day = todayISO();
-    $('#rDia').value = day;
+    if($('#rDia')) $('#rDia').value = day;
+
     await updateKPIs(day);
+
     try{ if(typeof window.runPythonReport === 'function') await window.runPythonReport(day, day); } catch(e){}
+    try{ if(typeof window.runPythonResist === 'function') await window.runPythonResist(day, day); } catch(e){}
+
     toast('Reporte de HOY ✅','ok');
   });
 
-  $('#btnPDF').addEventListener('click', ()=> window.print());
+  $('#btnPDF')?.addEventListener('click', ()=> window.print());
 }
 
+/**********************
+ * Init
+ **********************/
 async function boot(){
   await openDB();
   initDefaults();
@@ -801,8 +691,16 @@ async function boot(){
   wireDeletes();
   setOfflineBadge();
 
-  await renderBD($('#fMes').value || thisMonth());
-  await updateKPIs($('#rDia').value || todayISO());
+  await renderBD($('#fMes')?.value || thisMonth());
+  await updateKPIs($('#rDia')?.value || todayISO());
+
+  // Dibuja resistencias del día al cargar (si python está listo)
+  try{
+    const d = $('#rDia')?.value || todayISO();
+    if(typeof window.runPythonResist === 'function'){
+      await window.runPythonResist(d, d);
+    }
+  } catch(_){}
 }
 
 document.addEventListener('DOMContentLoaded', ()=>{
