@@ -1,5 +1,5 @@
 // CE - Control de Calidad (Offline)
-// app.js: Horas ordenadas + Demora, BD por mes, Reporte diario por día, fallback gráfico offline
+// app.js: Horas ordenadas + Demora, BD por mes, Reporte diario por día, fallback gráfico offline PRO
 
 /**********************
  * CONFIG
@@ -87,16 +87,22 @@ function parseInchFraction(input){
   s = s.replace(/[\"”″]/g,'').trim();
   s = s.replace(/\s+/g,' ');
 
+  // decimal
   if(/^\d+(\.\d+)?$/.test(s)){
     const v = Number(s);
     return { value: v, text: `${formatNum(v)}\"` };
   }
 
+  // a b/c or b/c
   const parts = s.split(' ');
   let whole = 0, frac = null;
-  if(parts.length === 1){ frac = parts[0]; }
-  else if(parts.length === 2){ whole = Number(parts[0]); frac = parts[1]; if(Number.isNaN(whole)) return null; }
-  else return null;
+  if(parts.length === 1){
+    frac = parts[0];
+  } else if(parts.length === 2){
+    whole = Number(parts[0]);
+    frac  = parts[1];
+    if(Number.isNaN(whole)) return null;
+  } else return null;
 
   const m = /^(\d+)\s*\/\s*(\d+)$/.exec(frac);
   if(!m) return null;
@@ -112,7 +118,7 @@ function parseInchFraction(input){
  * IndexedDB
  **********************/
 const DB_NAME = 'ce_qc_db';
-const DB_VER  = 4; // versión de DB (esto NO afecta tu regla; la regla era: nombres sin v2)
+const DB_VER  = 4;
 let db;
 
 function openDB(){
@@ -241,7 +247,10 @@ function showTab(name){
 async function renderBD(month=''){
   const [slump, resist, pernos] = await Promise.all([getAll('slump'), getAll('resist'), getAll('pernos')]);
   const fMonth = (arr)=> month ? arr.filter(r => monthKey(r.fecha) === month) : arr;
-  const sortDesc = (arr)=> arr.slice().sort((a,b)=> (b.fecha||'').localeCompare(a.fecha||'') || (b.hora||b.horaSlump||'').localeCompare(a.hora||a.horaSlump||''));
+  const sortDesc = (arr)=> arr.slice().sort((a,b)=>
+    (b.fecha||'').localeCompare(a.fecha||'') ||
+    (b.hora||b.horaSlump||'').localeCompare(a.hora||a.horaSlump||'')
+  );
 
   renderTblSlump(sortDesc(fMonth(slump)));
   renderTblResist(sortDesc(fMonth(resist)));
@@ -349,7 +358,7 @@ async function updateKPIs(dayIso){
 }
 
 /**********************
- * Fallback gráfico offline (barras verticales)
+ * Fallback gráfico offline (BARRAS SUPER PRO, NO GRUESAS)
  **********************/
 function groupMean(rows, keyGroup, keyValue){
   const m = new Map();
@@ -393,19 +402,30 @@ function drawBarVertical(canvas, items, title, unit=''){
     return;
   }
 
-  const margin = {l: 70, r: 30, t: 55, b: 140};
+  const margin = {l: 72, r: 26, t: 52, b: 150};
   const iw = W - margin.l - margin.r;
   const ih = H - margin.t - margin.b;
 
+  // Título
   ctx.fillStyle = '#111827';
   ctx.font = '900 18px system-ui';
+  ctx.textAlign = 'left';
   ctx.fillText(title, margin.l, 30);
 
   const maxV = Math.max(...items.map(d=>d.value), 1);
   const n = items.length;
-  const gap = 16;
-  const barW = (iw - gap*(n-1)) / n;
 
+  // Barras finas: cap máximo + gap dinámico
+  const maxBarW = 44;
+  const minGap  = 14;
+
+  let barW = Math.min(maxBarW, (iw / n) * 0.60);
+  let gap  = Math.max(minGap, (iw - (barW*n)) / Math.max(1, n-1));
+
+  const totalW = barW*n + gap*(n-1);
+  const startX = margin.l + Math.max(0, (iw - totalW)/2);
+
+  // Grid Y
   ctx.strokeStyle = 'rgba(17,24,39,.10)';
   ctx.lineWidth = 1;
   const gridLines = 4;
@@ -419,47 +439,56 @@ function drawBarVertical(canvas, items, title, unit=''){
     const val = maxV * (1 - i/gridLines);
     ctx.fillStyle = 'rgba(17,24,39,.55)';
     ctx.font = '700 12px system-ui';
+    ctx.textAlign = 'left';
     ctx.fillText(val.toFixed(1), 12, y+4);
   }
 
+  // Barras
   for(let i=0;i<n;i++){
     const d = items[i];
-    const x = margin.l + i*(barW + gap);
+    const x = startX + i*(barW + gap);
     const h = (d.value / maxV) * ih;
     const y = margin.t + (ih - h);
 
-    ctx.fillStyle = 'rgba(249,115,22,.88)';
-    ctx.strokeStyle = 'rgba(154,52,18,.65)';
-    ctx.lineWidth = 1.2;
+    const grad = ctx.createLinearGradient(0, y, 0, y+h);
+    grad.addColorStop(0, 'rgba(251,146,60,.95)');
+    grad.addColorStop(1, 'rgba(249,115,22,.85)');
+
+    ctx.fillStyle = grad;
+    ctx.strokeStyle = 'rgba(154,52,18,.55)';
+    ctx.lineWidth = 1.1;
 
     roundRect(ctx, x, y, barW, h, 10);
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = '#F97316';
-    ctx.beginPath();
-    ctx.arc(x + barW/2, y, 8, 0, Math.PI*2);
-    ctx.fill();
-
+    // valor
     ctx.fillStyle = '#111827';
     ctx.font = '800 12px system-ui';
-    ctx.fillText(d.value.toFixed(2), x, y-10);
+    ctx.textAlign = 'center';
+    ctx.fillText(d.value.toFixed(2), x + barW/2, y - 10);
 
+    // label
     ctx.save();
-    ctx.translate(x + barW/2, H - margin.b + 110);
-    ctx.rotate(-0.55);
-    ctx.fillStyle = '#111827';
+    ctx.translate(x + barW/2, H - margin.b + 118);
+    ctx.rotate(-0.62);
+    ctx.fillStyle = 'rgba(17,24,39,.92)';
     ctx.font = '800 12px system-ui';
-    const lab = d.labor.length > 22 ? d.labor.slice(0,21)+'…' : d.labor;
-    ctx.fillText(lab, -60, 0);
+    ctx.textAlign = 'left';
+    const lab = d.labor.length > 24 ? d.labor.slice(0,23)+'…' : d.labor;
+    ctx.fillText(lab, -70, 0);
     ctx.restore();
   }
 
+  // unidad
   if(unit){
     ctx.fillStyle = 'rgba(17,24,39,.75)';
     ctx.font = '800 12px system-ui';
-    ctx.fillText(unit, W - margin.r - 110, 30);
+    ctx.textAlign = 'right';
+    ctx.fillText(unit, W - margin.r, 30);
   }
+
+  ctx.textAlign = 'left';
 }
 
 async function drawFallbackCharts(dayIso){
@@ -727,6 +756,7 @@ function wireReportButtons(){
     $('#rDia').value = day;
     await updateKPIs(day);
 
+    // intento Python
     if(typeof window.runPythonReport === 'function'){
       try{
         await window.runPythonReport(day, day);
@@ -743,6 +773,7 @@ function wireReportButtons(){
       } catch(err){ console.warn(err); }
     }
 
+    // fallback offline
     await drawFallbackCharts(day);
     toast('Modo offline: gráfico alternativo ✅','warn');
   });
