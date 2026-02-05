@@ -1,5 +1,5 @@
 // Service Worker - cache básico para uso offline
-const CACHE_NAME = 'ce-offline-v1';
+const CACHE_NAME = 'ce-offline-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -27,19 +27,30 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  const req = event.request;
+
+  // Navegación: intenta red, si falla devuelve index.html cacheado
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req).catch(() => caches.match('./index.html'))
+    );
+    return;
+  }
+
+  // Cache-first para assets
   event.respondWith(
-    caches.match(event.request).then(cached => {
+    caches.match(req).then(cached => {
       if (cached) return cached;
-      return fetch(event.request).then(resp => {
-        // cache dinámico sólo si es GET y same-origin
-        try{
-          if(event.request.method === 'GET' && new URL(event.request.url).origin === self.location.origin){
+      return fetch(req).then(resp => {
+        try {
+          if (req.method === 'GET' && new URL(req.url).origin === self.location.origin) {
             const copy = resp.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+            caches.open(CACHE_NAME).then(cache => cache.put(req, copy));
           }
-        }catch(_){ }
+        } catch (_) {}
         return resp;
-      }).catch(() => cached);
+      });
     })
   );
 });
+
