@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CE - Control de Calidad (Offline)</title>
 
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#F97316"/>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0F1115"/>
   <link rel="stylesheet" href="styles.css" />
 </head>
 
@@ -35,7 +35,7 @@
   <section id="tab-slump" class="panel active" role="tabpanel">
     <div class="panel-head">
       <h2>Slump y Temperatura</h2>
-      <p class="muted">Registro de control (Slump en pulgadas/div>
+      <p class="muted">Registro de control (Slump en pulgadas) + variables de mezcla.</p>
 
     <form id="formSlump" class="card">
       <div class="slump-layout">
@@ -63,7 +63,9 @@
           <div class="grid grid-4 mt-12">
             <div>
               <label>Slump (pulgadas)</label>
-              <input type="text" name="slumpIn" placeholder='Ej. 9 3/4" | 10 1/4" | 7/8"' required />
+              <input type="text" name="slumpIn" placeholder='Ej. 9 3/4" 
+10 1/4" 
+7/8"' required />
               <small class="hint">Acepta: 9 3/4", 10 1/4", 7/8", 9.75"</small>
             </div>
             <div>
@@ -91,6 +93,7 @@
             <button class="btn" type="submit">Guardar</button>
             <button class="btn btn-secondary" type="reset">Limpiar</button>
           </div>
+
           <div class="inline-status" id="slumpStatus" aria-live="polite"></div>
         </div>
 
@@ -98,7 +101,6 @@
         <aside class="slump-hours">
           <div class="hours-card">
             <div class="hours-title">Horas</div>
-
             <div class="hours-grid">
               <div>
                 <label>Hora del Slump</label>
@@ -113,7 +115,6 @@
                 <input type="time" name="hll" required />
               </div>
             </div>
-
             <div class="hint mt-12">Tip: llena primero “HS” y “H_LL” para calcular demoras (si luego deseas lo añadimos).</div>
           </div>
         </aside>
@@ -243,7 +244,6 @@
           <label>Hasta</label>
           <input type="date" id="fHasta" />
         </div>
-
         <div class="col-span-2 actions left">
           <button id="btnFiltrar" class="btn" type="button">Filtrar</button>
           <button id="btnLimpiarFiltro" class="btn btn-secondary" type="button">Ver todo</button>
@@ -328,6 +328,7 @@
           <div class="kpi-value" id="kpiTempProm">—</div>
           <div class="kpi-sub muted" id="kpiTempExtra">Min — / Max —</div>
         </div>
+
         <div class="kpi-big">
           <div class="kpi-title">Pernos Instalados</div>
           <div class="kpi-value" id="kpiPernosTotal">0</div>
@@ -340,7 +341,7 @@
 
     <div class="grid-2">
       <div class="card">
-        <h3>Slump (" ) promedio por Labor</h3>
+        <h3>Slump (") promedio por Labor</h3>
         <canvas id="chartSlump" width="920" height="560"></canvas>
       </div>
       <div class="card">
@@ -363,8 +364,12 @@
 </footer>
 
 <script src="app.js"></script>
+
 <script>
-  if ('serviceWorker' in   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js');
+    });
   }
 </script>
 
