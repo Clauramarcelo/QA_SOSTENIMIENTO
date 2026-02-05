@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CE - Control de Calidad (Offline)</title>
 
-  <link rel="manifest" href="manifest_v2.json" />
+  <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#E5E7EB"/>
-  <link rel="stylesheet" href="styles_v2.css" />
 
-  <!-- PyScript (pinneado). Para offline real: usar archivos locales. -->
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- PyScript (pinneado). Nota: si quieres Python 100% offline, luego lo pasamos a local. -->
   <link rel="stylesheet" href="https://pyscript.net/releases/2026.1.1/core.css" />
   <script type="module" src="https://pyscript.net/releases/2026.1.1/core.js"></script>
 </head>
@@ -44,6 +45,7 @@
 
     <form id="formSlump" class="card">
       <div class="slump-layout">
+
         <!-- IZQUIERDA: datos -->
         <div class="slump-main">
           <div class="grid grid-4">
@@ -100,7 +102,7 @@
           <div class="inline-status" id="slumpStatus" aria-live="polite"></div>
         </div>
 
-        <!-- DERECHA: horas (1 HS, 2 H_LL, 3 Hora Slump, 4 Demora) -->
+        <!-- DERECHA: horas (orden solicitado) -->
         <aside class="slump-hours">
           <div class="hours-card">
             <div class="hours-title">Horas</div>
@@ -348,14 +350,14 @@
         <h3>Slump (") promedio por Labor</h3>
         <img id="chartSlumpImg" class="chart-img" alt="Gráfico Slump (Python)" />
         <canvas id="chartSlumpCv" class="chart-cv" width="920" height="560"></canvas>
-        <div class="hint mt-12" id="chartSlumpHint">Si Python no carga en offline, se muestra el gráfico alternativo.</div>
+        <div class="hint mt-12">Si Python no carga en offline, se muestra el gráfico alternativo.</div>
       </div>
 
       <div class="card">
         <h3>Presión de aire promedio por Labor</h3>
         <img id="chartAireImg" class="chart-img" alt="Gráfico Aire (Python)" />
         <canvas id="chartAireCv" class="chart-cv" width="920" height="560"></canvas>
-        <div class="hint mt-12" id="chartAireHint">Reporte diario por día seleccionado.</div>
+        <div class="hint mt-12">Reporte diario por día seleccionado.</div>
       </div>
     </div>
 
@@ -372,14 +374,15 @@
   <span id="offlineBadge" class="badge">Online</span>
 </footer>
 
-<script src="app_v2.js"></script>
+<script src="app.js"></script>
 
+<!-- PyScript: reporte en worker con config -->
 <script type="py" src="report.py" config="pyscript.json" worker></script>
 
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw_v4.js');
+      navigator.serviceWorker.register('./sw.js');
     });
   }
 </script>
