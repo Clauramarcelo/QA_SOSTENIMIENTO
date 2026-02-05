@@ -10,7 +10,7 @@
 
   <link rel="stylesheet" href="styles.css" />
 
-  <!-- PyScript (pinneado). Nota: si quieres Python 100% offline, luego lo pasamos a local. -->
+  <!-- PyScript (CDN). Para Python 100% offline luego se puede pasar a local + cachear en sw.js -->
   <link rel="stylesheet" href="https://pyscript.net/releases/2026.1.1/core.css" />
   <script type="module" src="https://pyscript.net/releases/2026.1.1/core.js"></script>
 </head>
@@ -36,7 +36,7 @@
 
 <main class="container">
 
-  <!-- TAB 1 -->
+  <!-- TAB 1: SLUMP -->
   <section id="tab-slump" class="panel active" role="tabpanel">
     <div class="panel-head">
       <h2>Slump y Temperatura</h2>
@@ -46,7 +46,7 @@
     <form id="formSlump" class="card">
       <div class="slump-layout">
 
-        <!-- IZQUIERDA: datos -->
+        <!-- IZQUIERDA -->
         <div class="slump-main">
           <div class="grid grid-4">
             <div>
@@ -102,7 +102,7 @@
           <div class="inline-status" id="slumpStatus" aria-live="polite"></div>
         </div>
 
-        <!-- DERECHA: horas (orden solicitado) -->
+        <!-- DERECHA: HORAS -->
         <aside class="slump-hours">
           <div class="hours-card">
             <div class="hours-title">Horas</div>
@@ -132,11 +132,11 @@
     </form>
   </section>
 
-  <!-- TAB 2 -->
+  <!-- TAB 2: RESISTENCIAS (MÉTODO A) -->
   <section id="tab-resist" class="panel" role="tabpanel">
     <div class="panel-head">
-      <h2>Resistencias Iniciales</h2>
-      <p class="muted">Registra resistencias tempranas (edad + MPa).</p>
+      <h2>Resistencias tempranas — Método A</h2>
+      <p class="muted">Ingresa 10 incados (N máximos) por cada tiempo (15, 30, 45, 60 min...). La app calcula MPa = (N̄ − 27) / 526.</p>
     </div>
 
     <form id="formResist" class="card">
@@ -146,7 +146,7 @@
           <input type="date" name="fecha" required />
         </div>
         <div>
-          <label>Hora</label>
+          <label>Hora (HRS)</label>
           <input type="time" name="hora" required />
         </div>
         <div>
@@ -157,14 +157,20 @@
           <label>Nivel</label>
           <input type="text" name="nivel" required />
         </div>
+
         <div>
-          <label>Edad (min / h)</label>
-          <input type="text" name="edad" placeholder="Ej. 30 min, 1 h, 3 h" required />
+          <label>Edad / Tiempo</label>
+          <input type="text" name="edad" placeholder="Ej. 15 min, 30 min, 45 min, 60 min" required />
+          <small class="hint">También puedes escribir “0.25 h” en lugar de 15 min.</small>
         </div>
-        <div>
-          <label>Resistencia (MPa)</label>
-          <input type="number" name="resistencia" step="0.01" min="0" placeholder="Ej. 1.25" required />
+
+        <div class="col-span-2">
+          <label>10 incados (N) — valores máximos (Método A)</label>
+          <textarea name="incadosN" rows="2" required
+            placeholder="Ej: 120 130 125 128 132 127 129 131 126 130"></textarea>
+          <small class="hint">Ingresar exactamente 10 valores en N. Se calcula MPa = (N̄ − 27) / 526.</small>
         </div>
+
         <div class="col-span-2">
           <label>Observaciones</label>
           <input type="text" name="obs" placeholder="Opcional" />
@@ -178,9 +184,17 @@
 
       <div class="inline-status" id="resistStatus" aria-live="polite"></div>
     </form>
+
+    <!-- GRÁFICO RESISTENCIAS -->
+    <div class="card">
+      <h3>Curva de resistencias tempranas (MPa vs h) — log–log + J1/J2/J3</h3>
+      <img id="chartResistImg" class="chart-img" alt="Gráfico Resistencias (Python)" />
+      <canvas id="chartResistCv" class="chart-cv" width="920" height="560"></canvas>
+      <div class="hint mt-12">Eje X hasta 24 h (según tu tabla). Si PyScript no carga en offline, se puede implementar un fallback.</div>
+    </div>
   </section>
 
-  <!-- TAB 3 -->
+  <!-- TAB 3: PERNOS -->
   <section id="tab-pernos" class="panel" role="tabpanel">
     <div class="panel-head">
       <h2>Instalación de Pernos</h2>
@@ -238,7 +252,7 @@
     </form>
   </section>
 
-  <!-- TAB 4 -->
+  <!-- TAB 4: BD (por mes) -->
   <section id="tab-bd" class="panel" role="tabpanel">
     <div class="panel-head">
       <h2>Base de Datos (por mes)</h2>
@@ -259,7 +273,7 @@
           <button id="btnBorrarTodo" class="btn btn-danger" type="button">Borrar TODO</button>
         </div>
       </div>
-      <p class="hint">Tip: El filtro por mes evita conflictos de rangos “Desde/Hasta”.</p>
+      <p class="hint">Tip: El filtro por mes evita conflictos de rangos.</p>
     </div>
 
     <div class="card">
@@ -307,11 +321,11 @@
     </div>
   </section>
 
-  <!-- TAB 5 -->
+  <!-- TAB 5: REPORTE -->
   <section id="tab-reporte" class="panel" role="tabpanel">
     <div class="panel-head">
       <h2>Reporte diario</h2>
-      <p class="muted">Reporte por día (para WhatsApp / PDF).</p>
+      <p class="muted">Reporte por día (WhatsApp / PDF).</p>
     </div>
 
     <div class="card">
@@ -342,7 +356,7 @@
         </div>
       </div>
 
-      <p class="hint">En celular: Exportar PDF → “Guardar como PDF” → Compartir por WhatsApp.</p>
+      <p class="hint">En celular: Exportar PDF → Guardar como PDF → Compartir.</p>
     </div>
 
     <div class="grid-2">
@@ -350,14 +364,12 @@
         <h3>Slump (") promedio por Labor</h3>
         <img id="chartSlumpImg" class="chart-img" alt="Gráfico Slump (Python)" />
         <canvas id="chartSlumpCv" class="chart-cv" width="920" height="560"></canvas>
-        <div class="hint mt-12">Si Python no carga en offline, se muestra el gráfico alternativo.</div>
       </div>
 
       <div class="card">
         <h3>Presión de aire promedio por Labor</h3>
         <img id="chartAireImg" class="chart-img" alt="Gráfico Aire (Python)" />
         <canvas id="chartAireCv" class="chart-cv" width="920" height="560"></canvas>
-        <div class="hint mt-12">Reporte diario por día seleccionado.</div>
       </div>
     </div>
 
@@ -376,7 +388,7 @@
 
 <script src="app.js"></script>
 
-<!-- PyScript: reporte en worker con config -->
+<!-- PyScript: ejecuta report.py en worker con config -->
 <script type="py" src="report.py" config="pyscript.json" worker></script>
 
 <script>
@@ -389,3 +401,4 @@
 
 </body>
 </html>
+``
