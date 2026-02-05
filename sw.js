@@ -1,5 +1,5 @@
 // Service Worker - cache básico para uso offline
-const CACHE_NAME = 'ce-offline-v10'; // ✅ única versión aquí
+const CACHE_NAME = 'ce-offline-v11'; // ✅ única versión aquí
 
 const ASSETS = [
   './',
