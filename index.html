@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CE - Control de Calidad (Offline)</title>
 
-  <link rel="manifest" href="manifest.json" />
+  <link rel="manifest" href="manifest_v2.json" />
   <meta name="theme-color" content="#E5E7EB"/>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles_v2.css" />
 
-  <!-- PyScript (pinneado) -->
-  <link rel="stylesheet" href="https://pyscript.net/releases/2026.1.1/core.css">
+  <!-- PyScript (pinneado). Para offline real: usar archivos locales. -->
+  <link rel="stylesheet" href="https://pyscript.net/releases/2026.1.1/core.css" />
   <script type="module" src="https://pyscript.net/releases/2026.1.1/core.js"></script>
 </head>
 
@@ -44,7 +44,7 @@
 
     <form id="formSlump" class="card">
       <div class="slump-layout">
-        <!-- IZQUIERDA -->
+        <!-- IZQUIERDA: datos -->
         <div class="slump-main">
           <div class="grid grid-4">
             <div>
@@ -68,7 +68,7 @@
           <div class="grid grid-4 mt-12">
             <div>
               <label>Slump (pulgadas)</label>
-              <input type="text" name="slumpIn" placeholder='Ej. 9 3/4"  | 10 1/4" | 7/8"' required />
+              <input type="text" name="slumpIn" placeholder='Ej. 9 3/4" | 10 1/4" | 9.75"' required />
               <small class="hint">Acepta: 9 3/4", 10 1/4", 7/8", 9.75"</small>
             </div>
             <div>
@@ -100,27 +100,32 @@
           <div class="inline-status" id="slumpStatus" aria-live="polite"></div>
         </div>
 
-        <!-- DERECHA: HORAS -->
+        <!-- DERECHA: horas (1 HS, 2 H_LL, 3 Hora Slump, 4 Demora) -->
         <aside class="slump-hours">
           <div class="hours-card">
             <div class="hours-title">Horas</div>
             <div class="hours-grid">
               <div>
-                <label>Hora del Slump</label>
-                <input type="time" name="horaSlump" required />
-              </div>
-              <div>
-                <label>Hora de salida (HS)</label>
+                <label>1. Hora de salida (HS)</label>
                 <input type="time" name="hsOut" required />
               </div>
               <div>
-                <label>Hora llegada (H_LL)</label>
+                <label>2. Hora llegada (H_LL)</label>
                 <input type="time" name="hll" required />
               </div>
+              <div>
+                <label>3. Hora del Slump</label>
+                <input type="time" name="horaSlump" required />
+              </div>
+              <div>
+                <label>4. Demora (H_LL - HS)</label>
+                <input type="text" name="demora" readonly placeholder="Se calcula automáticamente" />
+              </div>
             </div>
-            <div class="hint mt-12">Tip: llena primero “HS” y “H_LL” para calcular demoras.</div>
+            <div class="hint mt-12">La demora se calcula como H_LL - HS (si cruza medianoche, se ajusta).</div>
           </div>
         </aside>
+
       </div>
     </form>
   </section>
@@ -227,7 +232,6 @@
         <button class="btn" type="submit">Guardar</button>
         <button class="btn btn-secondary" type="reset">Limpiar</button>
       </div>
-
       <div class="inline-status" id="pernosStatus" aria-live="polite"></div>
     </form>
   </section>
@@ -235,28 +239,25 @@
   <!-- TAB 4 -->
   <section id="tab-bd" class="panel" role="tabpanel">
     <div class="panel-head">
-      <h2>Base de Datos (por fecha)</h2>
-      <p class="muted">Filtra por rango y gestiona registros.</p>
+      <h2>Base de Datos (por mes)</h2>
+      <p class="muted">Filtra por mes y gestiona registros.</p>
     </div>
 
     <div class="card">
       <div class="grid">
         <div>
-          <label>Desde</label>
-          <input type="date" id="fDesde" />
+          <label>Mes</label>
+          <input type="month" id="fMes" />
         </div>
-        <div>
-          <label>Hasta</label>
-          <input type="date" id="fHasta" />
-        </div>
+        <div></div>
         <div class="col-span-2 actions left">
-          <button id="btnFiltrar" class="btn" type="button">Filtrar</button>
+          <button id="btnFiltrar" class="btn" type="button">Aplicar mes</button>
           <button id="btnLimpiarFiltro" class="btn btn-secondary" type="button">Ver todo</button>
           <button id="btnBDPDF" class="btn btn-secondary" type="button">Exportar PDF</button>
           <button id="btnBorrarTodo" class="btn btn-danger" type="button">Borrar TODO</button>
         </div>
       </div>
-      <p class="hint">Recomendación: Exporta antes de borrar toda la base de datos.</p>
+      <p class="hint">Tip: El filtro por mes evita conflictos de rangos “Desde/Hasta”.</p>
     </div>
 
     <div class="card">
@@ -265,8 +266,9 @@
         <table class="table" id="tblSlump">
           <thead>
             <tr>
-              <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th>
-              <th>Slump</th><th>T°</th><th>Presión</th><th>Mixer</th><th>H_Salida</th><th>H_LL</th><th></th>
+              <th>Fecha</th><th>Hora Slump</th><th>Labor</th><th>Nivel</th>
+              <th>Slump</th><th>T°</th><th>Presión</th><th>Mixer</th>
+              <th>HS</th><th>H_LL</th><th>Demora</th><th></th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -306,23 +308,20 @@
   <!-- TAB 5 -->
   <section id="tab-reporte" class="panel" role="tabpanel">
     <div class="panel-head">
-      <h2>Reporte (WhatsApp / PDF)</h2>
-      <p class="muted">Gráficos lollipop verticales (Python) + KPIs.</p>
+      <h2>Reporte diario</h2>
+      <p class="muted">Reporte por día (para WhatsApp / PDF).</p>
     </div>
 
     <div class="card">
       <div class="grid">
         <div>
-          <label>Desde</label>
-          <input type="date" id="rDesde" />
+          <label>Día</label>
+          <input type="date" id="rDia" />
         </div>
-        <div>
-          <label>Hasta</label>
-          <input type="date" id="rHasta" />
-        </div>
+        <div></div>
         <div class="col-span-2 actions left">
           <button id="btnReporte" class="btn" type="button">Actualizar</button>
-          <button id="btnReporteTodo" class="btn btn-secondary" type="button">Todo</button>
+          <button id="btnReporteTodo" class="btn btn-secondary" type="button">Hoy</button>
           <button id="btnPDF" class="btn btn-secondary" type="button">Exportar PDF</button>
         </div>
       </div>
@@ -346,15 +345,17 @@
 
     <div class="grid-2">
       <div class="card">
-        <h3>Slump (") promedio por Labor (Lollipop vertical)</h3>
-        <img id="chartSlumpImg" class="chart-img" alt="Lollipop Slump" />
-        <div class="hint mt-12">Si no aparece el gráfico, presiona “Actualizar”.</div>
+        <h3>Slump (") promedio por Labor</h3>
+        <img id="chartSlumpImg" class="chart-img" alt="Gráfico Slump (Python)" />
+        <canvas id="chartSlumpCv" class="chart-cv" width="920" height="560"></canvas>
+        <div class="hint mt-12" id="chartSlumpHint">Si Python no carga en offline, se muestra el gráfico alternativo.</div>
       </div>
 
       <div class="card">
-        <h3>Presión de aire promedio por Labor (Lollipop vertical)</h3>
-        <img id="chartAireImg" class="chart-img" alt="Lollipop Aire" />
-        <div class="hint mt-12">Gráfico generado con Python (PyScript).</div>
+        <h3>Presión de aire promedio por Labor</h3>
+        <img id="chartAireImg" class="chart-img" alt="Gráfico Aire (Python)" />
+        <canvas id="chartAireCv" class="chart-cv" width="920" height="560"></canvas>
+        <div class="hint mt-12" id="chartAireHint">Reporte diario por día seleccionado.</div>
       </div>
     </div>
 
@@ -371,15 +372,14 @@
   <span id="offlineBadge" class="badge">Online</span>
 </footer>
 
-<script src="app.js"></script>
+<script src="app_v2.js"></script>
 
-<!-- PyScript: ejecuta el reporte en worker con config JSON -->
 <script type="py" src="report.py" config="pyscript.json" worker></script>
 
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js');
+      navigator.serviceWorker.register('./sw_v4.js');
     });
   }
 </script>
