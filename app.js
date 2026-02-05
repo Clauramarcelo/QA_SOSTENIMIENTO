@@ -1,12 +1,10 @@
 // CE - Control de Calidad (Offline)
-// app.js (patched): Wiring completo de botones + formularios + tablas + reportes
+// app.js - plomo tipo papel + soporte PyScript report
 
 /**********************
  * CONFIG
  **********************/
-const LIMITS = {
-  slump: { min: 8, max: 11 } // pulgadas
-};
+const LIMITS = { slump: { min: 8, max: 11 } };
 
 const $  = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
@@ -56,6 +54,7 @@ function formatNum(v){
 }
 
 function mean(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+
 function rangoCaption(desde,hasta){
   if(!desde && !hasta) return 'Todo el historial';
   if(desde && !hasta) return `Desde ${desde}`;
@@ -104,7 +103,7 @@ function parseInchFraction(input){
  * IndexedDB
  **********************/
 const DB_NAME = 'ce_qc_db';
-const DB_VER  = 3;
+const DB_VER  = 4; // tú ya lo pusiste v4 ✅
 let db;
 
 function openDB(){
@@ -166,6 +165,22 @@ function getAll(store){
 }
 
 /**********************
+ * Export para PyScript (IndexedDB -> JSON)
+ **********************/
+window.ceExportData = async function(desdeIso, hastaIso){
+  const [slump, resist, pernos] = await Promise.all([
+    getAll('slump'), getAll('resist'), getAll('pernos')
+  ]);
+  const f = (arr) => arr.filter(r => inRange(r.fecha, desdeIso, hastaIso));
+  return {
+    slump: f(slump),
+    resist: f(resist),
+    pernos: f(pernos),
+    rango: { desde: desdeIso || null, hasta: hastaIso || null }
+  };
+};
+
+/**********************
  * UI Helpers
  **********************/
 function toast(msg, type='ok', ms=2400){
@@ -211,10 +226,6 @@ function showTab(name){
     }
   });
   localStorage.setItem('ce_last_tab', name);
-}
-
-function btnMini(label='🗑'){
-  return `<button type="button" class="btn-mini" title="Eliminar">${label}</button>`;
 }
 
 /**********************
@@ -303,105 +314,14 @@ function renderTblPernos(rows){
 }
 
 /**********************
- * Report (JS fallback)
+ * Report (KPIs + resumen)
+ * (Los gráficos los genera Python en report.py)
  **********************/
-function groupMean(rows, keyGroup, keyValue){
-  const m = new Map();
-  for(const r of rows){
-    const k = (r[keyGroup] ?? '').trim() || '—';
-    const v = Number(r[keyValue]);
-    if(Number.isNaN(v)) continue;
-    if(!m.has(k)) m.set(k, {k, sum:0, n:0});
-    const o = m.get(k);
-    o.sum += v; o.n += 1;
-  }
-  const out = [...m.values()].map(o=>({ labor:o.k, value:o.n? o.sum/o.n : 0, n:o.n }));
-  out.sort((a,b)=> a.value-b.value);
-  return out;
-}
-
-function drawLollipop(canvas, items, title=''){ // items: [{labor,value}]
-  if(!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-
-  // background
-  ctx.clearRect(0,0,W,H);
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0,0,W,H);
-
-  if(!items.length){
-    ctx.fillStyle = '#6B7280';
-    ctx.font = '700 22px system-ui';
-    ctx.fillText('Sin datos en el rango seleccionado', 40, 80);
-    return;
-  }
-
-  const top = items.slice(-12); // top 12
-  const labels = top.map(d=>d.labor);
-  const values = top.map(d=>d.value);
-
-  const margin = {l: 220, r: 50, t: 40, b: 50};
-  const innerW = W - margin.l - margin.r;
-  const innerH = H - margin.t - margin.b;
-  const maxV = Math.max(...values, 1);
-
-  // axes
-  ctx.strokeStyle = 'rgba(17,24,39,.18)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(margin.l, margin.t);
-  ctx.lineTo(margin.l, H - margin.b);
-  ctx.lineTo(W - margin.r, H - margin.b);
-  ctx.stroke();
-
-  // title
-  ctx.fillStyle = '#111827';
-  ctx.font = '700 18px system-ui';
-  if(title) ctx.fillText(title, margin.l, 26);
-
-  const n = labels.length;
-  const stepY = innerH / Math.max(1, n-1);
-
-  for(let i=0;i<n;i++){
-    const y = margin.t + i*stepY;
-    const v = values[i];
-    const x = margin.l + (v/maxV)*innerW;
-
-    // label
-    ctx.fillStyle = '#111827';
-    ctx.font = '700 16px system-ui';
-    const lab = labels[i].length>22 ? labels[i].slice(0,21)+'…' : labels[i];
-    ctx.fillText(lab, 20, y+6);
-
-    // line
-    ctx.strokeStyle = 'rgba(251,146,60,.85)';
-    ctx.lineWidth = 6;
-    ctx.beginPath();
-    ctx.moveTo(margin.l, y);
-    ctx.lineTo(x, y);
-    ctx.stroke();
-
-    // dot
-    ctx.fillStyle = '#F97316';
-    ctx.beginPath();
-    ctx.arc(x, y, 8, 0, Math.PI*2);
-    ctx.fill();
-
-    // value
-    ctx.fillStyle = '#374151';
-    ctx.font = '700 14px system-ui';
-    ctx.fillText(formatNum(v), x+12, y+5);
-  }
-}
-
-async function updateReport(desdeIso='', hastaIso=''){
+async function updateKPIs(desdeIso='', hastaIso=''){
   const [slump, pernos] = await Promise.all([getAll('slump'), getAll('pernos')]);
-
   const slumpF = slump.filter(r=> inRange(r.fecha, desdeIso, hastaIso));
   const pernosF = pernos.filter(r=> inRange(r.fecha, desdeIso, hastaIso));
 
-  // KPIs
   const temps = slumpF.map(r=>Number(r.temp)).filter(v=>!Number.isNaN(v));
   const tProm = mean(temps);
   const tMin  = temps.length ? Math.min(...temps) : null;
@@ -420,12 +340,6 @@ async function updateReport(desdeIso='', hastaIso=''){
   if(elPT) elPT.textContent = String(Math.round(hel+sw));
   if(elPE) elPE.textContent = `Helicoidal ${Math.round(hel)} / Swellex ${Math.round(sw)}`;
 
-  // charts (JS fallback)
-  const bySlump = groupMean(slumpF, 'labor', 'slumpValue');
-  const byAire  = groupMean(slumpF, 'labor', 'presionAire');
-  drawLollipop($('#chartSlump'), bySlump, 'Slump promedio por labor');
-  drawLollipop($('#chartAire'),  byAire,  'Presión de aire promedio por labor');
-
   const resumen = $('#resumenReporte');
   if(resumen){
     resumen.innerHTML = `
@@ -440,13 +354,11 @@ async function updateReport(desdeIso='', hastaIso=''){
  * Init & Wiring
  **********************/
 function initDefaults(){
-  // fechas por defecto en formularios
   const d = todayISO();
   $('#formSlump input[name="fecha"]')?.setAttribute('value', d);
   $('#formResist input[name="fecha"]')?.setAttribute('value', d);
   $('#formPernos input[name="fecha"]')?.setAttribute('value', d);
 
-  // horas por defecto
   $('#formSlump input[name="horaSlump"]')?.setAttribute('value', nowHHMM());
   $('#formResist input[name="hora"]')?.setAttribute('value', nowHHMM());
   $('#formPernos input[name="hora"]')?.setAttribute('value', nowHHMM());
@@ -461,7 +373,6 @@ function wirePernosChecks(){
   function sync(){
     const helOn = !!chkHel?.checked;
     const swOn  = !!chkSw?.checked;
-
     if(inHel){
       inHel.disabled = !helOn;
       if(!helOn) inHel.value = 0;
@@ -486,7 +397,6 @@ function wireTabs(){
 }
 
 function wireDeletes(){
-  // delegación para botones eliminar en tablas
   document.addEventListener('click', async (e)=>{
     const b = e.target.closest('[data-del]');
     if(!b) return;
@@ -497,14 +407,8 @@ function wireDeletes(){
     if(!confirm('¿Eliminar este registro?')) return;
     await deleteRecord(store, id);
 
-    // re-render BD y reporte
-    const desde = $('#fDesde')?.value || '';
-    const hasta = $('#fHasta')?.value || '';
-    await renderBD(desde, hasta);
-
-    const rDesde = $('#rDesde')?.value || '';
-    const rHasta = $('#rHasta')?.value || '';
-    await updateReport(rDesde, rHasta);
+    await renderBD($('#fDesde')?.value||'', $('#fHasta')?.value||'');
+    await updateKPIs($('#rDesde')?.value||'', $('#rHasta')?.value||'');
 
     toast('Registro eliminado', 'ok');
   });
@@ -550,13 +454,9 @@ function wireForms(){
     toast(ok ? 'Guardado ✅' : 'Guardado (Slump fuera de rango)', ok ? 'ok' : 'warn');
 
     fSlump.reset();
-    // reponer defaults
     fSlump.querySelector('input[name="fecha"]').value = todayISO();
     fSlump.querySelector('input[name="horaSlump"]').value = nowHHMM();
-    fSlump.querySelector('input[name="hsOut"]').value = '';
-    fSlump.querySelector('input[name="hll"]').value = '';
 
-    // refrescar BD (si está filtrado, respeta filtro)
     await renderBD($('#fDesde')?.value||'', $('#fHasta')?.value||'');
   });
 
@@ -622,13 +522,12 @@ function wireForms(){
     fPer.querySelector('input[name="fecha"]').value = todayISO();
     fPer.querySelector('input[name="hora"]').value = nowHHMM();
 
-    // reset checks
     $('#chkHel').checked = false;
     $('#chkSw').checked  = false;
     wirePernosChecks();
 
     await renderBD($('#fDesde')?.value||'', $('#fHasta')?.value||'');
-    await updateReport($('#rDesde')?.value||'', $('#rHasta')?.value||'');
+    await updateKPIs($('#rDesde')?.value||'', $('#rHasta')?.value||'');
   });
 }
 
@@ -645,9 +544,7 @@ function wireBDButtons(){
     toast('Mostrando todo','ok');
   });
 
-  $('#btnBDPDF')?.addEventListener('click', ()=>{
-    window.print();
-  });
+  $('#btnBDPDF')?.addEventListener('click', ()=> window.print());
 
   $('#btnBorrarTodo')?.addEventListener('click', async ()=>{
     const ok = confirm('¿Borrar TODA la base de datos? Esta acción no se puede deshacer.');
@@ -657,7 +554,12 @@ function wireBDButtons(){
 
     await Promise.all([clearStore('slump'), clearStore('resist'), clearStore('pernos')]);
     await renderBD('', '');
-    await updateReport('', '');
+    await updateKPIs('', '');
+
+    // limpia imágenes de gráficos
+    $('#chartSlumpImg')?.removeAttribute('src');
+    $('#chartAireImg')?.removeAttribute('src');
+
     toast('Base de datos borrada','warn');
   });
 }
@@ -667,17 +569,19 @@ function wireReportButtons(){
     const desde = $('#rDesde')?.value || '';
     const hasta = $('#rHasta')?.value || '';
 
-    // si existe PyScript (más adelante), úsalo; si no, fallback JS
+    await updateKPIs(desde, hasta);
+
     if(typeof window.runPythonReport === 'function'){
       try{
         await window.runPythonReport(desde, hasta);
       }catch(err){
         console.warn(err);
-        await updateReport(desde, hasta);
+        toast('PyScript no respondió. Reintenta.', 'warn');
       }
     }else{
-      await updateReport(desde, hasta);
+      toast('PyScript aún cargando…', 'warn');
     }
+
     toast('Reporte actualizado','ok');
   });
 
@@ -685,18 +589,16 @@ function wireReportButtons(){
     if($('#rDesde')) $('#rDesde').value = '';
     if($('#rHasta')) $('#rHasta').value = '';
 
+    await updateKPIs('', '');
+
     if(typeof window.runPythonReport === 'function'){
       try{ await window.runPythonReport('', ''); }
-      catch{ await updateReport('', ''); }
-    } else {
-      await updateReport('', '');
+      catch{ toast('PyScript no respondió. Reintenta.', 'warn'); }
     }
     toast('Reporte: todo el historial','ok');
   });
 
-  $('#btnPDF')?.addEventListener('click', ()=>{
-    window.print();
-  });
+  $('#btnPDF')?.addEventListener('click', ()=> window.print());
 }
 
 async function boot(){
@@ -710,9 +612,8 @@ async function boot(){
   wireDeletes();
   setOfflineBadge();
 
-  // carga inicial
   await renderBD('', '');
-  await updateReport('', '');
+  await updateKPIs('', '');
 }
 
 document.addEventListener('DOMContentLoaded', ()=>{
