@@ -1,5 +1,5 @@
 // Service Worker - cache básico para uso offline
-const CACHE_NAME = 'ce-offline-v9'; // ✅ única “versión” aquí
+const CACHE_NAME = 'ce-offline-v10'; // ✅ única versión aquí
 
 const ASSETS = [
   './',
@@ -32,13 +32,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const req = event.request;
 
-  // navegación: red -> fallback a index.html
   if (req.mode === 'navigate') {
     event.respondWith(fetch(req).catch(() => caches.match('./index.html')));
     return;
   }
 
-  // cache-first para assets
   event.respondWith(
     caches.match(req).then(cached => {
       if (cached) return cached;
