@@ -1,11 +1,10 @@
 // CE - Control de Calidad (Offline)
-// app.js - plomo tipo papel + soporte PyScript report
+// app_v2.js: Horas ordenadas + Demora, BD por mes, Reporte diario por día, fallback gráfico offline
 
 /**********************
  * CONFIG
  **********************/
 const LIMITS = { slump: { min: 8, max: 11 } };
-
 const $  = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
@@ -13,13 +12,13 @@ function uid(){ return `${Date.now()}_${Math.random().toString(16).slice(2)}`; }
 function pad2(n){ return String(n).padStart(2,'0'); }
 function todayISO(){ const d=new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
 function nowHHMM(){ const d=new Date(); return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; }
+function thisMonth(){ const d=new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}`; }
+function monthKey(dateIso){ return dateIso ? String(dateIso).slice(0,7) : ''; }
 
 function setStatus(el, msg, ms=2500){
   if(!el) return;
   el.textContent = msg;
-  if(ms){
-    setTimeout(()=>{ if(el.textContent===msg) el.textContent=''; }, ms);
-  }
+  if(ms) setTimeout(()=>{ if(el.textContent===msg) el.textContent=''; }, ms);
 }
 
 function parseDateISO(iso){
@@ -55,15 +54,31 @@ function formatNum(v){
 
 function mean(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
 
-function rangoCaption(desde,hasta){
-  if(!desde && !hasta) return 'Todo el historial';
-  if(desde && !hasta) return `Desde ${desde}`;
-  if(!desde && hasta) return `Hasta ${hasta}`;
-  return `${desde} a ${hasta}`;
+/**********************
+ * Time helpers: demora = H_LL - HS
+ **********************/
+function timeToMin(hhmm){
+  if(!hhmm) return null;
+  const [h,m] = String(hhmm).split(':').map(Number);
+  if(Number.isNaN(h) || Number.isNaN(m)) return null;
+  return h*60 + m;
+}
+function minToHHMM(mins){
+  if(mins === null || mins === undefined || Number.isNaN(mins)) return '';
+  const m = ((mins%1440)+1440)%1440;
+  return `${pad2(Math.floor(m/60))}:${pad2(m%60)}`;
+}
+function calcDelayMin(hll, hs){
+  const a = timeToMin(hll);
+  const b = timeToMin(hs);
+  if(a===null || b===null) return null;
+  let d = a - b;
+  if(d < 0) d += 1440;
+  return d;
 }
 
 /**********************
- * Slump: pulgadas con fracciones
+ * Slump parser (pulgadas)
  **********************/
 function parseInchFraction(input){
   if(input === null || input === undefined) return null;
@@ -72,22 +87,16 @@ function parseInchFraction(input){
   s = s.replace(/[\"”″]/g,'').trim();
   s = s.replace(/\s+/g,' ');
 
-  // decimal
   if(/^\d+(\.\d+)?$/.test(s)){
     const v = Number(s);
-    return { value: v, text: `${formatNum(v)}"` };
+    return { value: v, text: `${formatNum(v)}\"` };
   }
 
-  // "a b/c" o "b/c"
   const parts = s.split(' ');
   let whole = 0, frac = null;
-  if(parts.length === 1){
-    frac = parts[0];
-  } else if(parts.length === 2){
-    whole = Number(parts[0]);
-    frac  = parts[1];
-    if(Number.isNaN(whole)) return null;
-  } else return null;
+  if(parts.length === 1){ frac = parts[0]; }
+  else if(parts.length === 2){ whole = Number(parts[0]); frac = parts[1]; if(Number.isNaN(whole)) return null; }
+  else return null;
 
   const m = /^(\d+)\s*\/\s*(\d+)$/.exec(frac);
   if(!m) return null;
@@ -95,7 +104,7 @@ function parseInchFraction(input){
   const den = Number(m[2]);
   if(!den) return null;
   const value = whole + (num/den);
-  const text  = (whole ? `${whole} ${num}/${den}` : `${num}/${den}`) + '"';
+  const text  = (whole ? `${whole} ${num}/${den}` : `${num}/${den}`) + '\"';
   return { value, text };
 }
 
@@ -103,7 +112,7 @@ function parseInchFraction(input){
  * IndexedDB
  **********************/
 const DB_NAME = 'ce_qc_db';
-const DB_VER  = 4; // tú ya lo pusiste v4 ✅
+const DB_VER  = 4;
 let db;
 
 function openDB(){
@@ -127,9 +136,7 @@ function openDB(){
   });
 }
 
-function tx(store, mode='readonly'){
-  return db.transaction(store, mode).objectStore(store);
-}
+function tx(store, mode='readonly'){ return db.transaction(store, mode).objectStore(store); }
 
 function addRecord(store, rec){
   rec.id = uid();
@@ -165,7 +172,7 @@ function getAll(store){
 }
 
 /**********************
- * Export para PyScript (IndexedDB -> JSON)
+ * Export para PyScript (usa rango; en reporte diario se pasa day,day)
  **********************/
 window.ceExportData = async function(desdeIso, hastaIso){
   const [slump, resist, pernos] = await Promise.all([
@@ -181,7 +188,7 @@ window.ceExportData = async function(desdeIso, hastaIso){
 };
 
 /**********************
- * UI Helpers
+ * UI
  **********************/
 function toast(msg, type='ok', ms=2400){
   let el = $('#toast');
@@ -229,20 +236,16 @@ function showTab(name){
 }
 
 /**********************
- * Render tables (BD)
+ * BD por mes
  **********************/
-async function renderBD(desdeIso='', hastaIso=''){
-  const [slump, resist, pernos] = await Promise.all([
-    getAll('slump'), getAll('resist'), getAll('pernos')
-  ]);
+async function renderBD(month=''){
+  const [slump, resist, pernos] = await Promise.all([getAll('slump'), getAll('resist'), getAll('pernos')]);
+  const fMonth = (arr)=> month ? arr.filter(r => monthKey(r.fecha) === month) : arr;
+  const sortDesc = (arr)=> arr.slice().sort((a,b)=> (b.fecha||'').localeCompare(a.fecha||'') || (b.hora||b.horaSlump||'').localeCompare(a.hora||a.horaSlump||''));
 
-  const f = (arr)=> arr
-    .filter(r=> inRange(r.fecha, desdeIso, hastaIso))
-    .sort((a,b)=> (b.fecha||'').localeCompare(a.fecha||'') || (b.hora||'').localeCompare(a.hora||''));
-
-  renderTblSlump(f(slump));
-  renderTblResist(f(resist));
-  renderTblPernos(f(pernos));
+  renderTblSlump(sortDesc(fMonth(slump)));
+  renderTblResist(sortDesc(fMonth(resist)));
+  renderTblPernos(sortDesc(fMonth(pernos)));
 }
 
 function renderEmptyRow(tbody, cols, msg='Sin registros'){
@@ -252,22 +255,23 @@ function renderEmptyRow(tbody, cols, msg='Sin registros'){
 function renderTblSlump(rows){
   const tbody = $('#tblSlump tbody');
   if(!tbody) return;
-  if(!rows.length) return renderEmptyRow(tbody, 11);
+  if(!rows.length) return renderEmptyRow(tbody, 12);
 
   tbody.innerHTML = rows.map(r=>{
     const del = `<button type="button" class="btn-mini" data-del data-store="slump" data-id="${esc(r.id)}">🗑</button>`;
     return `
       <tr>
         <td data-label="Fecha"><span class="cell-right">${esc(r.fecha||'')}</span></td>
-        <td data-label="Hora"><span class="cell-right">${esc(r.horaSlump||'')}</span></td>
+        <td data-label="Hora Slump"><span class="cell-right">${esc(r.horaSlump||'')}</span></td>
         <td data-label="Labor">${esc(r.labor||'')}</td>
         <td data-label="Nivel"><span class="cell-right">${esc(r.nivel||'')}</span></td>
         <td data-label="Slump"><span class="cell-right">${esc(r.slumpText||'')}</span></td>
         <td data-label="T°"><span class="cell-right">${esc(formatNum(r.temp))}</span></td>
         <td data-label="Presión"><span class="cell-right">${esc(formatNum(r.presionAire))}</span></td>
         <td data-label="Mixer"><span class="cell-right">${esc(r.mixerNo||'')}</span></td>
-        <td data-label="H_Salida"><span class="cell-right">${esc(r.hsOut||'')}</span></td>
+        <td data-label="HS"><span class="cell-right">${esc(r.hsOut||'')}</span></td>
         <td data-label="H_LL"><span class="cell-right">${esc(r.hll||'')}</span></td>
+        <td data-label="Demora"><span class="cell-right">${esc(r.demoraText||'')}</span></td>
         <td data-label="">${del}</td>
       </tr>`;
   }).join('');
@@ -314,13 +318,12 @@ function renderTblPernos(rows){
 }
 
 /**********************
- * Report (KPIs + resumen)
- * (Los gráficos los genera Python en report.py)
+ * Reporte diario KPIs
  **********************/
-async function updateKPIs(desdeIso='', hastaIso=''){
+async function updateKPIs(dayIso){
   const [slump, pernos] = await Promise.all([getAll('slump'), getAll('pernos')]);
-  const slumpF = slump.filter(r=> inRange(r.fecha, desdeIso, hastaIso));
-  const pernosF = pernos.filter(r=> inRange(r.fecha, desdeIso, hastaIso));
+  const slumpF  = dayIso ? slump.filter(r=> r.fecha === dayIso) : slump;
+  const pernosF = dayIso ? pernos.filter(r=> r.fecha === dayIso) : pernos;
 
   const temps = slumpF.map(r=>Number(r.temp)).filter(v=>!Number.isNaN(v));
   const tProm = mean(temps);
@@ -330,20 +333,15 @@ async function updateKPIs(desdeIso='', hastaIso=''){
   const hel = pernosF.reduce((a,r)=>a + (Number(r.cantHel)||0), 0);
   const sw  = pernosF.reduce((a,r)=>a + (Number(r.cantSw)||0), 0);
 
-  const elProm = $('#kpiTempProm');
-  const elExtra= $('#kpiTempExtra');
-  if(elProm) elProm.textContent = temps.length ? `${formatNum(tProm)} °C` : '—';
-  if(elExtra) elExtra.textContent = temps.length ? `Min ${formatNum(tMin)} / Max ${formatNum(tMax)}` : 'Min — / Max —';
-
-  const elPT = $('#kpiPernosTotal');
-  const elPE = $('#kpiPernosExtra');
-  if(elPT) elPT.textContent = String(Math.round(hel+sw));
-  if(elPE) elPE.textContent = `Helicoidal ${Math.round(hel)} / Swellex ${Math.round(sw)}`;
+  $('#kpiTempProm').textContent = temps.length ? `${formatNum(tProm)} °C` : '—';
+  $('#kpiTempExtra').textContent = temps.length ? `Min ${formatNum(tMin)} / Max ${formatNum(tMax)}` : 'Min — / Max —';
+  $('#kpiPernosTotal').textContent = String(Math.round(hel+sw));
+  $('#kpiPernosExtra').textContent = `Helicoidal ${Math.round(hel)} / Swellex ${Math.round(sw)}`;
 
   const resumen = $('#resumenReporte');
   if(resumen){
     resumen.innerHTML = `
-      <div><b>Rango:</b> ${esc(rangoCaption(desdeIso,hastaIso))}</div>
+      <div><b>Día:</b> ${esc(dayIso || 'Todo')}</div>
       <div><b>Registros slump:</b> ${slumpF.length}</div>
       <div><b>Registros pernos:</b> ${pernosF.length}</div>
     `;
@@ -351,17 +349,170 @@ async function updateKPIs(desdeIso='', hastaIso=''){
 }
 
 /**********************
- * Init & Wiring
+ * Fallback gráfico offline (barras verticales)
+ **********************/
+function groupMean(rows, keyGroup, keyValue){
+  const m = new Map();
+  for(const r of rows){
+    const k = (r[keyGroup] ?? '').trim() || '—';
+    const v = Number(r[keyValue]);
+    if(Number.isNaN(v)) continue;
+    if(!m.has(k)) m.set(k, {k, sum:0, n:0});
+    const o = m.get(k);
+    o.sum += v; o.n += 1;
+  }
+  const out = [...m.values()].map(o=>({ labor:o.k, value:o.n? o.sum/o.n : 0 }));
+  out.sort((a,b)=> a.value - b.value);
+  return out.slice(-12);
+}
+
+function roundRect(ctx, x, y, w, h, r){
+  const rr = Math.min(r, w/2, h/2);
+  ctx.beginPath();
+  ctx.moveTo(x+rr, y);
+  ctx.arcTo(x+w, y, x+w, y+h, rr);
+  ctx.arcTo(x+w, y+h, x, y+h, rr);
+  ctx.arcTo(x, y+h, x, y, rr);
+  ctx.arcTo(x, y, x+w, y, rr);
+  ctx.closePath();
+}
+
+function drawBarVertical(canvas, items, title, unit=''){
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0,0,W,H);
+
+  if(!items.length){
+    ctx.fillStyle = '#6B7280';
+    ctx.font = '800 22px system-ui';
+    ctx.fillText('Sin datos para el día seleccionado', 40, 80);
+    return;
+  }
+
+  const margin = {l: 70, r: 30, t: 55, b: 140};
+  const iw = W - margin.l - margin.r;
+  const ih = H - margin.t - margin.b;
+
+  ctx.fillStyle = '#111827';
+  ctx.font = '900 18px system-ui';
+  ctx.fillText(title, margin.l, 30);
+
+  const maxV = Math.max(...items.map(d=>d.value), 1);
+  const n = items.length;
+  const gap = 16;
+  const barW = (iw - gap*(n-1)) / n;
+
+  ctx.strokeStyle = 'rgba(17,24,39,.10)';
+  ctx.lineWidth = 1;
+  const gridLines = 4;
+  for(let i=0;i<=gridLines;i++){
+    const y = margin.t + (ih*i/gridLines);
+    ctx.beginPath();
+    ctx.moveTo(margin.l, y);
+    ctx.lineTo(W - margin.r, y);
+    ctx.stroke();
+
+    const val = maxV * (1 - i/gridLines);
+    ctx.fillStyle = 'rgba(17,24,39,.55)';
+    ctx.font = '700 12px system-ui';
+    ctx.fillText(val.toFixed(1), 12, y+4);
+  }
+
+  for(let i=0;i<n;i++){
+    const d = items[i];
+    const x = margin.l + i*(barW + gap);
+    const h = (d.value / maxV) * ih;
+    const y = margin.t + (ih - h);
+
+    ctx.fillStyle = 'rgba(249,115,22,.88)';
+    ctx.strokeStyle = 'rgba(154,52,18,.65)';
+    ctx.lineWidth = 1.2;
+
+    roundRect(ctx, x, y, barW, h, 10);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#F97316';
+    ctx.beginPath();
+    ctx.arc(x + barW/2, y, 8, 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.fillStyle = '#111827';
+    ctx.font = '800 12px system-ui';
+    ctx.fillText(d.value.toFixed(2), x, y-10);
+
+    ctx.save();
+    ctx.translate(x + barW/2, H - margin.b + 110);
+    ctx.rotate(-0.55);
+    ctx.fillStyle = '#111827';
+    ctx.font = '800 12px system-ui';
+    const lab = d.labor.length > 22 ? d.labor.slice(0,21)+'…' : d.labor;
+    ctx.fillText(lab, -60, 0);
+    ctx.restore();
+  }
+
+  if(unit){
+    ctx.fillStyle = 'rgba(17,24,39,.75)';
+    ctx.font = '800 12px system-ui';
+    ctx.fillText(unit, W - margin.r - 110, 30);
+  }
+}
+
+async function drawFallbackCharts(dayIso){
+  const data = await window.ceExportData(dayIso, dayIso);
+  const slump = data.slump || [];
+
+  for(const r of slump){
+    if(r.slumpValue === undefined || r.slumpValue === null || Number.isNaN(Number(r.slumpValue))){
+      const p = parseInchFraction(r.slumpIn);
+      if(p) r.slumpValue = p.value;
+    }
+  }
+
+  const bySlump = groupMean(slump, 'labor', 'slumpValue');
+  const byAire  = groupMean(slump, 'labor', 'presionAire');
+
+  const imgS = $('#chartSlumpImg');
+  const imgA = $('#chartAireImg');
+  const cvS  = $('#chartSlumpCv');
+  const cvA  = $('#chartAireCv');
+
+  if(imgS) imgS.style.display = 'none';
+  if(imgA) imgA.style.display = 'none';
+  if(cvS)  cvS.style.display  = 'block';
+  if(cvA)  cvA.style.display  = 'block';
+
+  drawBarVertical(cvS, bySlump, 'Slump promedio por labor', 'pulgadas (")');
+  drawBarVertical(cvA,  byAire, 'Presión de aire promedio por labor', 'presión');
+}
+
+/**********************
+ * Init & wiring
  **********************/
 function initDefaults(){
   const d = todayISO();
-  $('#formSlump input[name="fecha"]')?.setAttribute('value', d);
-  $('#formResist input[name="fecha"]')?.setAttribute('value', d);
-  $('#formPernos input[name="fecha"]')?.setAttribute('value', d);
+  $('#formSlump input[name="fecha"]').value = d;
+  $('#formResist input[name="fecha"]').value = d;
+  $('#formPernos input[name="fecha"]').value = d;
 
-  $('#formSlump input[name="horaSlump"]')?.setAttribute('value', nowHHMM());
-  $('#formResist input[name="hora"]')?.setAttribute('value', nowHHMM());
-  $('#formPernos input[name="hora"]')?.setAttribute('value', nowHHMM());
+  $('#formSlump input[name="horaSlump"]').value = nowHHMM();
+  $('#formSlump input[name="demora"]').value = '';
+
+  $('#formResist input[name="hora"]').value = nowHHMM();
+  $('#formPernos input[name="hora"]').value = nowHHMM();
+
+  $('#fMes').value = thisMonth();
+  $('#rDia').value = d;
+}
+
+function wireTabs(){
+  $$('.tab').forEach(btn=> btn.addEventListener('click', ()=> showTab(btn.dataset.tab)));
+  const last = localStorage.getItem('ce_last_tab');
+  if(last) showTab(last);
 }
 
 function wirePernosChecks(){
@@ -371,29 +522,31 @@ function wirePernosChecks(){
   const inSw   = $('#cantSw');
 
   function sync(){
-    const helOn = !!chkHel?.checked;
-    const swOn  = !!chkSw?.checked;
-    if(inHel){
-      inHel.disabled = !helOn;
-      if(!helOn) inHel.value = 0;
-    }
-    if(inSw){
-      inSw.disabled = !swOn;
-      if(!swOn) inSw.value = 0;
-    }
+    const helOn = !!chkHel.checked;
+    const swOn  = !!chkSw.checked;
+    inHel.disabled = !helOn;
+    inSw.disabled  = !swOn;
+    if(!helOn) inHel.value = 0;
+    if(!swOn)  inSw.value  = 0;
   }
 
-  chkHel?.addEventListener('change', sync);
-  chkSw?.addEventListener('change', sync);
+  chkHel.addEventListener('change', sync);
+  chkSw.addEventListener('change', sync);
   sync();
 }
 
-function wireTabs(){
-  $$('.tab').forEach(btn=>{
-    btn.addEventListener('click', ()=> showTab(btn.dataset.tab));
-  });
-  const last = localStorage.getItem('ce_last_tab');
-  if(last) showTab(last);
+function wireSlumpDelay(){
+  const hs  = $('#formSlump input[name="hsOut"]');
+  const hll = $('#formSlump input[name="hll"]');
+  const out = $('#formSlump input[name="demora"]');
+
+  function recalc(){
+    const dmin = calcDelayMin(hll.value, hs.value);
+    out.value = (dmin === null) ? '' : `${minToHHMM(dmin)} (${dmin} min)`;
+  }
+
+  hs.addEventListener('input', recalc);
+  hll.addEventListener('input', recalc);
 }
 
 function wireDeletes(){
@@ -407,9 +560,8 @@ function wireDeletes(){
     if(!confirm('¿Eliminar este registro?')) return;
     await deleteRecord(store, id);
 
-    await renderBD($('#fDesde')?.value||'', $('#fHasta')?.value||'');
-    await updateKPIs($('#rDesde')?.value||'', $('#rHasta')?.value||'');
-
+    await renderBD($('#fMes').value || '');
+    await updateKPIs($('#rDia').value || '');
     toast('Registro eliminado', 'ok');
   });
 }
@@ -418,7 +570,7 @@ function wireForms(){
   // Slump
   const fSlump = $('#formSlump');
   const stSlump= $('#slumpStatus');
-  fSlump?.addEventListener('submit', async (e)=>{
+  fSlump.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const fd = new FormData(fSlump);
 
@@ -428,6 +580,12 @@ function wireForms(){
       toast('Slump inválido', 'err');
       return;
     }
+
+    const hsOut = fd.get('hsOut');
+    const hll   = fd.get('hll');
+    const dmin  = calcDelayMin(hll, hsOut);
+    const demoraText = (dmin===null) ? '' : `${minToHHMM(dmin)} (${dmin} min)`;
+
     const slumpValue = parsed.value;
     const ok = slumpValue >= LIMITS.slump.min && slumpValue <= LIMITS.slump.max;
 
@@ -443,9 +601,11 @@ function wireForms(){
       presionAire: Number(fd.get('presionAire')),
       mixerNo: String(fd.get('mixerNo')||'').trim(),
       obs: String(fd.get('obs')||'').trim(),
+      hsOut,
+      hll,
       horaSlump: fd.get('horaSlump'),
-      hsOut: fd.get('hsOut'),
-      hll: fd.get('hll'),
+      demoraMin: dmin,
+      demoraText,
       slumpOk: ok
     };
 
@@ -456,14 +616,15 @@ function wireForms(){
     fSlump.reset();
     fSlump.querySelector('input[name="fecha"]').value = todayISO();
     fSlump.querySelector('input[name="horaSlump"]').value = nowHHMM();
+    fSlump.querySelector('input[name="demora"]').value = '';
 
-    await renderBD($('#fDesde')?.value||'', $('#fHasta')?.value||'');
+    await renderBD($('#fMes').value || '');
   });
 
   // Resist
   const fRes = $('#formResist');
   const stRes= $('#resistStatus');
-  fRes?.addEventListener('submit', async (e)=>{
+  fRes.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const fd = new FormData(fRes);
     const rec = {
@@ -483,17 +644,17 @@ function wireForms(){
     fRes.querySelector('input[name="fecha"]').value = todayISO();
     fRes.querySelector('input[name="hora"]').value = nowHHMM();
 
-    await renderBD($('#fDesde')?.value||'', $('#fHasta')?.value||'');
+    await renderBD($('#fMes').value || '');
   });
 
   // Pernos
   const fPer = $('#formPernos');
   const stPer= $('#pernosStatus');
-  fPer?.addEventListener('submit', async (e)=>{
+  fPer.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const fd = new FormData(fPer);
-    const helOn = $('#chkHel')?.checked;
-    const swOn  = $('#chkSw')?.checked;
+    const helOn = $('#chkHel').checked;
+    const swOn  = $('#chkSw').checked;
 
     if(!helOn && !swOn){
       setStatus(stPer, 'Selecciona al menos un tipo de perno.', 3500);
@@ -501,16 +662,13 @@ function wireForms(){
       return;
     }
 
-    const cantHel = helOn ? Number(fd.get('cantHel')||0) : 0;
-    const cantSw  = swOn  ? Number(fd.get('cantSw')||0)  : 0;
-
     const rec = {
       fecha: fd.get('fecha'),
       hora: fd.get('hora'),
       labor: String(fd.get('labor')||'').trim(),
       nivel: String(fd.get('nivel')||'').trim(),
-      cantHel,
-      cantSw,
+      cantHel: helOn ? Number(fd.get('cantHel')||0) : 0,
+      cantSw:  swOn  ? Number(fd.get('cantSw')||0)  : 0,
       obs: String(fd.get('obs')||'').trim()
     };
 
@@ -526,37 +684,35 @@ function wireForms(){
     $('#chkSw').checked  = false;
     wirePernosChecks();
 
-    await renderBD($('#fDesde')?.value||'', $('#fHasta')?.value||'');
-    await updateKPIs($('#rDesde')?.value||'', $('#rHasta')?.value||'');
+    await renderBD($('#fMes').value || '');
+    await updateKPIs($('#rDia').value || '');
   });
 }
 
 function wireBDButtons(){
-  $('#btnFiltrar')?.addEventListener('click', async ()=>{
-    await renderBD($('#fDesde')?.value||'', $('#fHasta')?.value||'');
-    toast('Filtro aplicado','ok');
+  $('#btnFiltrar').addEventListener('click', async ()=>{
+    await renderBD($('#fMes').value || '');
+    toast('Mes aplicado','ok');
   });
 
-  $('#btnLimpiarFiltro')?.addEventListener('click', async ()=>{
-    if($('#fDesde')) $('#fDesde').value = '';
-    if($('#fHasta')) $('#fHasta').value = '';
-    await renderBD('', '');
+  $('#btnLimpiarFiltro').addEventListener('click', async ()=>{
+    $('#fMes').value = '';
+    await renderBD('');
     toast('Mostrando todo','ok');
   });
 
-  $('#btnBDPDF')?.addEventListener('click', ()=> window.print());
+  $('#btnBDPDF').addEventListener('click', ()=> window.print());
 
-  $('#btnBorrarTodo')?.addEventListener('click', async ()=>{
+  $('#btnBorrarTodo').addEventListener('click', async ()=>{
     const ok = confirm('¿Borrar TODA la base de datos? Esta acción no se puede deshacer.');
     if(!ok) return;
     const ok2 = confirm('Confirmación final: ¿Seguro que deseas borrar TODO?');
     if(!ok2) return;
 
     await Promise.all([clearStore('slump'), clearStore('resist'), clearStore('pernos')]);
-    await renderBD('', '');
-    await updateKPIs('', '');
+    await renderBD('');
+    await updateKPIs($('#rDia').value || '');
 
-    // limpia imágenes de gráficos
     $('#chartSlumpImg')?.removeAttribute('src');
     $('#chartAireImg')?.removeAttribute('src');
 
@@ -565,40 +721,40 @@ function wireBDButtons(){
 }
 
 function wireReportButtons(){
-  $('#btnReporte')?.addEventListener('click', async ()=>{
-    const desde = $('#rDesde')?.value || '';
-    const hasta = $('#rHasta')?.value || '';
-
-    await updateKPIs(desde, hasta);
+  $('#btnReporte').addEventListener('click', async ()=>{
+    const day = $('#rDia').value || todayISO();
+    $('#rDia').value = day;
+    await updateKPIs(day);
 
     if(typeof window.runPythonReport === 'function'){
       try{
-        await window.runPythonReport(desde, hasta);
-      }catch(err){
-        console.warn(err);
-        toast('PyScript no respondió. Reintenta.', 'warn');
-      }
-    }else{
-      toast('PyScript aún cargando…', 'warn');
+        await window.runPythonReport(day, day);
+        const s = $('#chartSlumpImg')?.getAttribute('src');
+        const a = $('#chartAireImg')?.getAttribute('src');
+        if(s || a){
+          $('#chartSlumpImg').style.display='block';
+          $('#chartAireImg').style.display='block';
+          $('#chartSlumpCv').style.display='none';
+          $('#chartAireCv').style.display='none';
+          toast('Gráficos Python listos ✅','ok');
+          return;
+        }
+      } catch(err){ console.warn(err); }
     }
 
-    toast('Reporte actualizado','ok');
+    await drawFallbackCharts(day);
+    toast('Modo offline: gráfico alternativo ✅','warn');
   });
 
-  $('#btnReporteTodo')?.addEventListener('click', async ()=>{
-    if($('#rDesde')) $('#rDesde').value = '';
-    if($('#rHasta')) $('#rHasta').value = '';
-
-    await updateKPIs('', '');
-
-    if(typeof window.runPythonReport === 'function'){
-      try{ await window.runPythonReport('', ''); }
-      catch{ toast('PyScript no respondió. Reintenta.', 'warn'); }
-    }
-    toast('Reporte: todo el historial','ok');
+  $('#btnReporteTodo').addEventListener('click', async ()=>{
+    const day = todayISO();
+    $('#rDia').value = day;
+    await updateKPIs(day);
+    try{ if(typeof window.runPythonReport === 'function') await window.runPythonReport(day, day); } catch(e){}
+    toast('Reporte de HOY ✅','ok');
   });
 
-  $('#btnPDF')?.addEventListener('click', ()=> window.print());
+  $('#btnPDF').addEventListener('click', ()=> window.print());
 }
 
 async function boot(){
@@ -606,14 +762,15 @@ async function boot(){
   initDefaults();
   wireTabs();
   wirePernosChecks();
+  wireSlumpDelay();
   wireForms();
   wireBDButtons();
   wireReportButtons();
   wireDeletes();
   setOfflineBadge();
 
-  await renderBD('', '');
-  await updateKPIs('', '');
+  await renderBD($('#fMes').value || thisMonth());
+  await updateKPIs($('#rDia').value || todayISO());
 }
 
 document.addEventListener('DOMContentLoaded', ()=>{
