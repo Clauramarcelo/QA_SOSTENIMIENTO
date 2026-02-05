@@ -1,11 +1,14 @@
 // Service Worker - cache básico para uso offline
-const CACHE_NAME = 'ce-offline-v4';
+const CACHE_NAME = 'ce-offline-v5';
+
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
   './manifest.json',
+  './report.py',
+  './pyscript.json',
   './icons/icon-192.png',
   './icons/icon-512.png'
 ];
@@ -29,7 +32,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const req = event.request;
 
-  // Navegación: intenta red, si falla devuelve index.html cacheado
+  // Navegación: red -> si falla, index.html cacheado
   if (req.mode === 'navigate') {
     event.respondWith(
       fetch(req).catch(() => caches.match('./index.html'))
