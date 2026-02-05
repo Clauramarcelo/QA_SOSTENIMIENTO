@@ -1,5 +1,5 @@
 // CE - Control de Calidad (Offline)
-// app_v2.js: Horas ordenadas + Demora, BD por mes, Reporte diario por día, fallback gráfico offline
+// app.js: Horas ordenadas + Demora, BD por mes, Reporte diario por día, fallback gráfico offline
 
 /**********************
  * CONFIG
@@ -55,7 +55,7 @@ function formatNum(v){
 function mean(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
 
 /**********************
- * Time helpers: demora = H_LL - HS
+ * Time helpers: demora = H_LL - HS (ajusta medianoche)
  **********************/
 function timeToMin(hhmm){
   if(!hhmm) return null;
@@ -78,7 +78,7 @@ function calcDelayMin(hll, hs){
 }
 
 /**********************
- * Slump parser (pulgadas)
+ * Slump parser (pulgadas: 9 3/4, 7/8, 9.75)
  **********************/
 function parseInchFraction(input){
   if(input === null || input === undefined) return null;
@@ -112,7 +112,7 @@ function parseInchFraction(input){
  * IndexedDB
  **********************/
 const DB_NAME = 'ce_qc_db';
-const DB_VER  = 4;
+const DB_VER  = 4; // versión de DB (esto NO afecta tu regla; la regla era: nombres sin v2)
 let db;
 
 function openDB(){
@@ -466,6 +466,7 @@ async function drawFallbackCharts(dayIso){
   const data = await window.ceExportData(dayIso, dayIso);
   const slump = data.slump || [];
 
+  // normaliza slumpValue si falta (datos antiguos)
   for(const r of slump){
     if(r.slumpValue === undefined || r.slumpValue === null || Number.isNaN(Number(r.slumpValue))){
       const p = parseInchFraction(r.slumpIn);
