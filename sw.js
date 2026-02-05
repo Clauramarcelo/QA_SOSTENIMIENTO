@@ -1,11 +1,12 @@
 // Service Worker - cache básico para uso offline
-const CACHE_NAME = 'ce-offline-v6';
+const CACHE_NAME = 'ce-offline-v7'; // ✅ única “versión” aquí
+
 const ASSETS = [
   './',
-  './index_v2.html',
-  './styles_v2.css',
-  './app_v2.js',
-  './manifest_v2.json',
+  './index.html',
+  './styles.css',
+  './app.js',
+  './manifest.json',
   './report.py',
   './pyscript.json',
   './icons/icon-192.png',
@@ -13,23 +14,31 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)));
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
+  );
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+    )
   );
   self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
+
+  // navegación: red -> fallback a index.html
   if (req.mode === 'navigate') {
-    event.respondWith(fetch(req).catch(() => caches.match('./index_v2.html')));
+    event.respondWith(fetch(req).catch(() => caches.match('./index.html')));
     return;
   }
+
+  // cache-first para assets
   event.respondWith(
     caches.match(req).then(cached => {
       if (cached) return cached;
