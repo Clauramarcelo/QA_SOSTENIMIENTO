@@ -10,7 +10,7 @@
 
   <link rel="stylesheet" href="styles.css" />
 
-  <!-- PyScript (CDN). Para Python 100% offline luego se puede pasar a local + cachear en sw.js -->
+  <!-- PyScript (CDN). Para Python 100% offline luego se pasa a local y cache en sw.js -->
   <link rel="stylesheet" href="https://pyscript.net/releases/2026.1.1/core.css" />
   <script type="module" src="https://pyscript.net/releases/2026.1.1/core.js"></script>
 </head>
@@ -46,7 +46,6 @@
     <form id="formSlump" class="card">
       <div class="slump-layout">
 
-        <!-- IZQUIERDA -->
         <div class="slump-main">
           <div class="grid grid-4">
             <div>
@@ -102,7 +101,7 @@
           <div class="inline-status" id="slumpStatus" aria-live="polite"></div>
         </div>
 
-        <!-- DERECHA: HORAS -->
+        <!-- HORAS -->
         <aside class="slump-hours">
           <div class="hours-card">
             <div class="hours-title">Horas</div>
@@ -132,11 +131,13 @@
     </form>
   </section>
 
-  <!-- TAB 2: RESISTENCIAS (MÉTODO A) -->
+  <!-- TAB 2: RESISTENCIAS (Método A tabulado fijo) -->
   <section id="tab-resist" class="panel" role="tabpanel">
     <div class="panel-head">
       <h2>Resistencias tempranas — Método A</h2>
-      <p class="muted">Ingresa 10 incados (N máximos) por cada tiempo (15, 30, 45, 60 min...). La app calcula MPa = (N̄ − 27) / 526.</p>
+      <p class="muted">
+        Se toman 10 incados (N máximos) por tiempo. La app calcula MPa = (N̄ − 27) / 526 y grafica log–log con J1/J2/J3.
+      </p>
     </div>
 
     <form id="formResist" class="card">
@@ -157,20 +158,57 @@
           <label>Nivel</label>
           <input type="text" name="nivel" required />
         </div>
+      </div>
 
-        <div>
-          <label>Edad / Tiempo</label>
-          <input type="text" name="edad" placeholder="Ej. 15 min, 30 min, 45 min, 60 min" required />
-          <small class="hint">También puedes escribir “0.25 h” en lugar de 15 min.</small>
+      <div class="resist-table mt-12">
+        <div class="resist-head">
+          <div>Tiempo</div>
+          <div>10 incados (N máximos)</div>
+          <div>MPa (calculado)</div>
         </div>
 
-        <div class="col-span-2">
-          <label>10 incados (N) — valores máximos (Método A)</label>
-          <textarea name="incadosN" rows="2" required
-            placeholder="Ej: 120 130 125 128 132 127 129 131 126 130"></textarea>
-          <small class="hint">Ingresar exactamente 10 valores en N. Se calcula MPa = (N̄ − 27) / 526.</small>
+        <div class="resist-row">
+          <div class="tcell"><span class="tag-time">15 min</span></div>
+          <div class="tcell">
+            <textarea name="incadosN_15" rows="2" placeholder="10 valores N separados por espacio" required></textarea>
+          </div>
+          <div class="tcell">
+            <input type="text" name="mpa_15" readonly placeholder="—" />
+          </div>
         </div>
 
+        <div class="resist-row">
+          <div class="tcell"><span class="tag-time">30 min</span></div>
+          <div class="tcell">
+            <textarea name="incadosN_30" rows="2" placeholder="10 valores N separados por espacio" required></textarea>
+          </div>
+          <div class="tcell">
+            <input type="text" name="mpa_30" readonly placeholder="—" />
+          </div>
+        </div>
+
+        <div class="resist-row">
+          <div class="tcell"><span class="tag-time">45 min</span></div>
+          <div class="tcell">
+            <textarea name="incadosN_45" rows="2" placeholder="10 valores N separados por espacio" required></textarea>
+          </div>
+          <div class="tcell">
+            <input type="text" name="mpa_45" readonly placeholder="—" />
+          </div>
+        </div>
+
+        <div class="resist-row">
+          <div class="tcell"><span class="tag-time">60 min</span></div>
+          <div class="tcell">
+            <textarea name="incadosN_60" rows="2" placeholder="10 valores N separados por espacio" required></textarea>
+          </div>
+          <div class="tcell">
+            <input type="text" name="mpa_60" readonly placeholder="—" />
+          </div>
+        </div>
+      </div>
+
+      <div class="grid mt-12">
         <div class="col-span-2">
           <label>Observaciones</label>
           <input type="text" name="obs" placeholder="Opcional" />
@@ -178,19 +216,18 @@
       </div>
 
       <div class="actions">
-        <button class="btn" type="submit">Guardar</button>
+        <button class="btn" type="submit">Guardar (15/30/45/60)</button>
         <button class="btn btn-secondary" type="reset">Limpiar</button>
       </div>
 
       <div class="inline-status" id="resistStatus" aria-live="polite"></div>
+      <div class="hint mt-12">Se guardan 4 registros (uno por tiempo). Luego se actualiza el gráfico y también se muestra en Reporte.</div>
     </form>
 
-    <!-- GRÁFICO RESISTENCIAS -->
     <div class="card">
-      <h3>Curva de resistencias tempranas (MPa vs h) — log–log + J1/J2/J3</h3>
+      <h3>Curva de resistencias (log–log) + J1/J2/J3</h3>
       <img id="chartResistImg" class="chart-img" alt="Gráfico Resistencias (Python)" />
       <canvas id="chartResistCv" class="chart-cv" width="920" height="560"></canvas>
-      <div class="hint mt-12">Eje X hasta 24 h (según tu tabla). Si PyScript no carga en offline, se puede implementar un fallback.</div>
     </div>
   </section>
 
@@ -373,6 +410,14 @@
       </div>
     </div>
 
+    <!-- ✅ NUEVO: gráfico resistencias en Reporte -->
+    <div class="card">
+      <h3>Resistencias tempranas (log–log) + J1/J2/J3</h3>
+      <img id="chartResistImgReport" class="chart-img" alt="Gráfico Resistencias (Python)" />
+      <canvas id="chartResistCvReport" class="chart-cv" width="920" height="560"></canvas>
+      <div class="hint mt-12">Se actualiza automáticamente cuando guardas Resistencias o cuando presionas “Actualizar”.</div>
+    </div>
+
     <div class="card">
       <h3>Resumen</h3>
       <div id="resumenReporte" class="muted"></div>
@@ -388,7 +433,7 @@
 
 <script src="app.js"></script>
 
-<!-- PyScript: ejecuta report.py en worker con config -->
+<!-- PyScript -->
 <script type="py" src="report.py" config="pyscript.json" worker></script>
 
 <script>
@@ -401,4 +446,3 @@
 
 </body>
 </html>
-``
