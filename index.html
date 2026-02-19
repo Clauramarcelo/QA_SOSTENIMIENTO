@@ -4,10 +4,15 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CE - Control de Calidad (Offline)</title>
+
+  <!-- PWA -->
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#E5E7EB"/>
+
+  <!-- Estilos principales -->
   <link rel="stylesheet" href="styles.css" />
-  <!-- PyScript (CDN). Para funcionamiento 100% offline, mover a vendor local y precache en sw.js -->
+
+  <!-- PyScript (CDN). Para 100% offline, el SW precachea estas rutas -->
   <link rel="stylesheet" href="https://pyscript.net/releases/2026.1.1/core.css" />
   <script type="module" src="https://pyscript.net/releases/2026.1.1/core.js"></script>
 </head>
@@ -37,6 +42,7 @@
       <h2>Slump y Temperatura</h2>
       <p class="muted">Registro de control (Slump en pulgadas) + variables de mezcla.</p>
     </div>
+
     <form id="formSlump" class="card">
       <div class="slump-layout">
         <div class="slump-main">
@@ -90,6 +96,7 @@
             <button class="btn" type="submit">Guardar</button>
             <button class="btn btn-secondary" type="reset">Limpiar</button>
           </div>
+
           <div class="inline-status" id="slumpStatus" aria-live="polite"></div>
         </div>
 
@@ -174,72 +181,71 @@
       </div>
 
       <!-- MÉTODO A -->
-<div id="resA" class="card mt-12">
-  <h3>Método A — Penetrómetro (10 lecturas en N por tiempo)</h3>
-  <div class="hint">
-    Ingresa 10 lecturas (N) separadas por espacio o enter en cada fila. 
-    La app calcula Promedio (N) y MPa = (N̄ − 37) / 526 automáticamente.
-  </div>
-
-  <div class="table-wrap">
-    <table class="table" style="min-width:0">
-      <thead>
-        <tr>
-          <th style="width:120px">Tiempo</th>
-          <th>10 lecturas (N)</th>
-          <th style="width:160px">Promedio (N)</th>
-          <th style="width:120px">MPa</th>
-        </tr>
-      </thead>
-      <tbody>
-        <!-- 0.25 h (15 min) -->
-        <tr>
-          <td data-label="Tiempo"><b>0.25 h (15 min)</b></td>
-          <td data-label="10 lecturas (N)">
-            <textarea name="incadosA_15" rows="2" placeholder="10 valores N…"></textarea>
-          </td>
-          <td data-label="Promedio (N)"><input type="text" name="promA_15" readonly /></td>
-          <td data-label="MPa"><input type="text" name="mpaA_15" readonly /></td>
-        </tr>
-        <!-- 0.50 h (30 min) -->
-        <tr>
-          <td data-label="Tiempo"><b>0.50 h (30 min)</b></td>
-          <td data-label="10 lecturas (N)">
-            <textarea name="incadosA_30" rows="2" placeholder="10 valores N…"></textarea>
-          </td>
-          <td data-label="Promedio (N)"><input type="text" name="promA_30" readonly /></td>
-          <td data-label="MPa"><input type="text" name="mpaA_30" readonly /></td>
-        </tr>
-        <!-- 0.75 h (45 min) -->
-        <tr>
-          <td data-label="Tiempo"><b>0.75 h (45 min)</b></td>
-          <td data-label="10 lecturas (N)">
-            <textarea name="incadosA_45" rows="2" placeholder="10 valores N…"></textarea>
-          </td>
-          <td data-label="Promedio (N)"><input type="text" name="promA_45" readonly /></td>
-          <td data-label="MPa"><input type="text" name="mpaA_45" readonly /></td>
-        </tr>
-        <!-- 1.00 h (60 min) -->
-        <tr>
-          <td data-label="Tiempo"><b>1.00 h (60 min)</b></td>
-          <td data-label="10 lecturas (N)">
-            <textarea name="incadosA_60" rows="2" placeholder="10 valores N…"></textarea>
-          </td>
-          <td data-label="Promedio (N)"><input type="text" name="promA_60" readonly /></td>
-          <td data-label="MPa"><input type="text" name="mpaA_60" readonly /></td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</div>
+      <div id="resA" class="card mt-12">
+        <h3>Método A — Penetrómetro (10 lecturas en N por tiempo)</h3>
+        <div class="hint">
+          Ingresa 10 lecturas (N) separadas por espacio o enter en cada fila.
+          La app calcula Promedio (N) y MPa = (N̅ − 37) / 526 automáticamente.
+        </div>
+        <div class="table-wrap">
+          <table class="table" style="min-width:0">
+            <thead>
+              <tr>
+                <th style="width:120px">Tiempo</th>
+                <th>10 lecturas (N)</th>
+                <th style="width:160px">Promedio (N)</th>
+                <th style="width:120px">MPa</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td data-label="Tiempo"><b>0.25 h (15 min)</b></td>
+                <td data-label="10 lecturas (N)">
+                  <textarea name="incadosA_15" rows="2" placeholder="10 valores N…"></textarea>
+                </td>
+                <td data-label="Promedio (N)"><input type="text" name="promA_15" readonly /></td>
+                <td data-label="MPa"><input type="text" name="mpaA_15" readonly /></td>
+              </tr>
+              <tr>
+                <td data-label="Tiempo"><b>0.50 h (30 min)</b></td>
+                <td data-label="10 lecturas (N)">
+                  <textarea name="incadosA_30" rows="2" placeholder="10 valores N…"></textarea>
+                </td>
+                <td data-label="Promedio (N)"><input type="text" name="promA_30" readonly /></td>
+                <td data-label="MPa"><input type="text" name="mpaA_30" readonly /></td>
+              </tr>
+              <tr>
+                <td data-label="Tiempo"><b>0.75 h (45 min)</b></td>
+                <td data-label="10 lecturas (N)">
+                  <textarea name="incadosA_45" rows="2" placeholder="10 valores N…"></textarea>
+                </td>
+                <td data-label="Promedio (N)"><input type="text" name="promA_45" readonly /></td>
+                <td data-label="MPa"><input type="text" name="mpaA_45" readonly /></td>
+              </tr>
+              <tr>
+                <td data-label="Tiempo"><b>1.00 h (60 min)</b></td>
+                <td data-label="10 lecturas (N)">
+                  <textarea name="incadosA_60" rows="2" placeholder="10 valores N…"></textarea>
+                </td>
+                <td data-label="Promedio (N)"><input type="text" name="promA_60" readonly /></td>
+                <td data-label="MPa"><input type="text" name="mpaA_60" readonly /></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <!-- MÉTODO B -->
       <div id="resB" class="card mt-12" style="display:none">
         <h3>Método B — Hilti</h3>
-        <div class="hint">Completa los parámetros por lectura (Longitudes, Pull-out). Calcula Relación N/mm y MPa.</div>
+        <div class="hint">
+          Completa las 5 lecturas por bloque (2 h = clavo 103 mm, 3 h = 80 mm, 4 h = 60 mm).
+          La app calcula L. incrustada = L. clavo − saliente, Relación N/mm y el promedio.
+          Resultado final por bloque: (Promedio N/mm + 2.7) / 7.69.
+        </div>
         <div id="areaB"></div>
         <div class="actions left">
-          <button type="button" id="addRowB" class="btn">Agregar lectura B</button>
+          <button type="button" id="resetB" class="btn btn-secondary">Limpiar Método B</button>
         </div>
       </div>
 
@@ -247,6 +253,7 @@
         <button class="btn" type="submit">Guardar lecturas</button>
         <button class="btn btn-secondary" type="reset">Limpiar</button>
       </div>
+
       <div class="inline-status" id="resistStatus" aria-live="polite"></div>
     </form>
 
@@ -263,6 +270,7 @@
       <h2>Instalación de Pernos</h2>
       <p class="muted">Registra tipo y cantidad instalada por labor.</p>
     </div>
+
     <form id="formPernos" class="card">
       <div class="grid">
         <div>
@@ -302,10 +310,12 @@
           <input type="text" name="obs" placeholder="Opcional" />
         </div>
       </div>
+
       <div class="actions">
         <button class="btn" type="submit">Guardar</button>
         <button class="btn btn-secondary" type="reset">Limpiar</button>
       </div>
+
       <div class="inline-status" id="pernosStatus" aria-live="polite"></div>
     </form>
   </section>
@@ -316,6 +326,7 @@
       <h2>Base de Datos (por mes)</h2>
       <p class="muted">Filtra por mes y gestiona registros.</p>
     </div>
+
     <div class="card">
       <div class="grid">
         <div>
@@ -338,11 +349,11 @@
       <div class="table-wrap">
         <table class="table" id="tblSlump">
           <thead>
-          <tr>
-            <th>Fecha</th><th>Hora Slump</th><th>Labor</th><th>Nivel</th>
-            <th>Slump</th><th>T°</th><th>Presión</th><th>Mixer</th>
-            <th>HS</th><th>H_LL</th><th>Demora</th><th></th>
-          </tr>
+            <tr>
+              <th>Fecha</th><th>Hora Slump</th><th>Labor</th><th>Nivel</th>
+              <th>Slump</th><th>T°</th><th>Presión</th><th>Mixer</th>
+              <th>HS</th><th>H_LL</th><th>Demora</th><th></th>
+            </tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -354,9 +365,9 @@
       <div class="table-wrap">
         <table class="table" id="tblResist">
           <thead>
-          <tr>
-            <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th><th>Método</th><th>Edad</th><th>MPa</th><th></th>
-          </tr>
+            <tr>
+              <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th><th>Método</th><th>Edad</th><th>MPa</th><th></th>
+            </tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -368,9 +379,9 @@
       <div class="table-wrap">
         <table class="table" id="tblPernos">
           <thead>
-          <tr>
-            <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th><th>Helicoidal</th><th>Swellex</th><th></th>
-          </tr>
+            <tr>
+              <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th><th>Helicoidal</th><th>Swellex</th><th></th>
+            </tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -384,6 +395,7 @@
       <h2>Reporte diario</h2>
       <p class="muted">Reporte por día (WhatsApp / PDF).</p>
     </div>
+
     <div class="card">
       <div class="grid">
         <div>
@@ -410,6 +422,7 @@
           <div class="kpi-sub muted" id="kpiPernosExtra">Helicoidal 0 / Swellex 0</div>
         </div>
       </div>
+
       <p class="hint">En celular: Exportar PDF → Guardar como PDF → Compartir.</p>
     </div>
 
@@ -445,9 +458,13 @@
   <span id="offlineBadge" class="badge">Online</span>
 </footer>
 
+<!-- Lógica de la app -->
 <script src="app.js"></script>
+
 <!-- PyScript -->
 <script type="py" src="report.py" config="pyscript.json" worker></script>
+
+<!-- Service Worker -->
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
