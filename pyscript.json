@@ -1,3 +1,4 @@
 {
-  "packages": ["matplotlib"]
+  "packages": ["numpy", "matplotlib"],
+  "terminal": false
 }
