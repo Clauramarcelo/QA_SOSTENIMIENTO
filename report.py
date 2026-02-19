@@ -1,3 +1,7 @@
+# report.py — Gráficos para CE Offline (PyScript)
+# Incluye: runPythonReport (Slump/Presión) y runPythonResist (log–log)
+# Basado en tu archivo anterior, se añadió runPythonResist y la utilería. [1](https://volcanperu-my.sharepoint.com/personal/claura_volcan_com_pe/Documents/Archivos%20de%20Microsoft%C2%A0Copilot%20Chat/styles.css)
+
 import io, base64
 from pyscript import window, web
 import matplotlib.pyplot as plt
@@ -29,14 +33,13 @@ def group_mean(rows, key_group, key_value):
     acc[k] = (s + v, n + 1)
   out = [(k, (s/n) if n else 0.0, n) for k,(s,n) in acc.items()]
   out.sort(key=lambda x: x[1])
-  return out[-12:]  # top 12 para que se vea limpio
+  return out[-12:]
 
 def bar_vertical_pro(title, xlabels, yvalues, ylabel="", band=None):
   fig, ax = plt.subplots(figsize=(8.6, 5.0))
   fig.patch.set_facecolor(PLOMO_BG)
   ax.set_facecolor(CARD_BG)
   x = np.arange(len(xlabels))
-  # Banda objetivo (min,max) para slump (8–11)
   if band:
     lo, hi = band
     ax.axhspan(lo, hi, color=ORANGE2, alpha=0.12, zorder=0)
@@ -44,14 +47,12 @@ def bar_vertical_pro(title, xlabels, yvalues, ylabel="", band=None):
     ax.axhline(hi, color=ORANGE2, alpha=0.45, linewidth=1.1)
     ax.text(len(x)-0.35, hi, f"Obj máx {hi}", fontsize=9, color=TXT, ha="right", va="bottom")
     ax.text(len(x)-0.35, lo, f"Obj mín {lo}", fontsize=9, color=TXT, ha="right", va="top")
-  # Barras
   bars = ax.bar(x, yvalues, width=0.55, color=ORANGE, alpha=0.88, edgecolor=EDGE, linewidth=1.0, zorder=3)
   for b in bars:
     h = b.get_height()
     ax.text(b.get_x() + b.get_width()/2, h, f"{h:.2f}", fontsize=9, color=TXT, ha="center", va="bottom")
   ax.set_title(title, fontsize=14, fontweight="bold", color=TXT)
-  if ylabel:
-    ax.set_ylabel(ylabel, fontsize=10, color=TXT)
+  if ylabel: ax.set_ylabel(ylabel, fontsize=10, color=TXT)
   ax.set_xticks(x)
   ax.set_xticklabels([lab[:18] + ("…" if len(lab) > 18 else "") for lab in xlabels], rotation=25, ha="right", fontsize=10, color=TXT)
   ax.tick_params(axis="y", labelsize=10, colors=TXT)
@@ -69,7 +70,7 @@ async def run_report(desde, hasta):
   slump = data.get("slump", [])
   s = group_mean(slump, "labor", "slumpValue")
   a = group_mean(slump, "labor", "presionAire")
-  # Slump por labor (con banda 8–11)
+  # Slump por labor (banda 8–11")
   if s:
     labs = [t[0] for t in s]
     vals = [t[1] for t in s]
@@ -86,7 +87,6 @@ async def run_report(desde, hasta):
   else:
     web.page["#chartAireImg"].removeAttribute("src")
 
-# === Resistencias iniciales (log–log) ===
 def scatter_loglog(title, xs, ys, xlabel="Horas (log)", ylabel="MPa (log)"):
   fig, ax = plt.subplots(figsize=(8.6, 5.0))
   fig.patch.set_facecolor(PLOMO_BG)
@@ -96,10 +96,8 @@ def scatter_loglog(title, xs, ys, xlabel="Horas (log)", ylabel="MPa (log)"):
   X, Y = X[m], Y[m]
   if len(X) == 0:
     return None
-  # Línea + puntos
   ax.plot(X, Y, color=ORANGE, linewidth=1.2, alpha=0.85, zorder=3)
   ax.scatter(X, Y, color=ORANGE, edgecolor=EDGE, s=32, zorder=4)
-  # Escalas log
   ax.set_xscale('log'); ax.set_yscale('log')
   ax.set_title(title, fontsize=14, fontweight="bold", color=TXT)
   ax.set_xlabel(xlabel, fontsize=10, color=TXT)
@@ -138,6 +136,6 @@ async def run_resist(desde, hasta):
     if img:    img.removeAttribute("src")
     if imgRep: imgRep.removeAttribute("src")
 
-# Expone a JS
+# Exponer a JS
 window.runPythonReport = run_report
 window.runPythonResist = run_resist
