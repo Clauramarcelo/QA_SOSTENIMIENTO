@@ -6,48 +6,41 @@
 // Config básica
 // -------------------------
 const LIMITS = { slump: { min: 8, max: 11 } };
-
 // (Opcional) Calibración Método B (Hilti) si lo usas
 const CALIB = {
   B: {
     II: { type:'linear', a: 0.13003901170351106, b: 0.35110533159948026, label:'B–II (local 26/01/2026)' }
   }
 };
-
-const $  = (sel) => document.querySelector(sel);
+const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
-
 function uid(){ return `${Date.now()}_${Math.random().toString(16).slice(2)}`; }
 function pad2(n){ return String(n).padStart(2,'0'); }
 function todayISO(){ const d=new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
 function nowHHMM(){ const d=new Date(); return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; }
 function thisMonth(){ const d=new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}`; }
 function monthKey(dateIso){ return dateIso ? String(dateIso).slice(0,7) : ''; }
-
 function setStatus(el, msg, ms=2500){
   if(!el) return;
   el.textContent = msg;
   if(ms) setTimeout(()=>{ if(el.textContent===msg) el.textContent=''; }, ms);
 }
-
 // Escape seguro (anti-XSS)
 function esc(s){
   const str = String(s ?? '');
   return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/\x22/g, '&quot;')
-    .replace(/'/g, '&#39;');
+  .replace(/&/g, '&')
+  .replace(/</g, '<')
+  .replace(/>/g, '>')
+  .replace(/\x22/g, '"')
+  .replace(/'/g, '\'');
 }
-
 function formatNum(v){
   if(v === null || v === undefined || Number.isNaN(v)) return '';
   if(Number.isInteger(v)) return String(v);
   return (Math.round(v*100)/100).toFixed(2).replace(/\.00$/,'');
 }
 function mean(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
-
 function parseDateISO(iso){
   if(!iso) return null;
   const [y,m,d] = iso.split('-').map(Number);
@@ -100,7 +93,7 @@ function parseInchFraction(input){
     const v = Number(s);
     return { value: v, text: `${formatNum(v)}"` };
   }
-  // a b/c  o  b/c
+  // a b/c o b/c
   const parts = s.split(' ');
   let whole = 0, frac = null;
   if(parts.length === 1){ frac = parts[0]; }
@@ -122,23 +115,23 @@ function parseInchFraction(input){
 function parseNList(text){
   if(!text) return [];
   return String(text)
-    .replace(/,/g,' ')
-    .replace(/;/g,' ')
-    .replace(/\s+/g,' ')
-    .trim()
-    .split(' ')
-    .filter(Boolean)
-    .map(Number)
-    .filter(v => !Number.isNaN(v));
+  .replace(/,/g,' ')
+  .replace(/;/g,' ')
+  .replace(/\s+/g,' ')
+  .trim()
+  .split(' ')
+  .filter(Boolean)
+  .map(Number)
+  .filter(v => !Number.isNaN(v));
 }
 function mpaFromNpromA(nProm){
-  // MPa = max(0, (N̄ - 37) / 526)
+  // MPa = max(0, (N̅ - 37) / 526)
   const mpa = (nProm - 37) / 526;
   return Math.max(0, mpa);
 }
 
 // -------------------------
-// (Opcional) Método B helpers
+// (Opcional) Método B helpers (calibración a MPa por curva — no usado en flujo actual)
 // -------------------------
 function calcMPaB(curva, rel){
   const c = (CALIB.B[curva] || CALIB.B.II);
@@ -146,13 +139,179 @@ function calcMPaB(curva, rel){
   return Math.max(0, mpa);
 }
 
+// ==============================
+// Método B (Hilti) — UI + Cálculo
+// ==============================
+const HILTI = {
+  // Tiempos fijos y longitudes de clavo (mm)
+  times: [
+    { key: '2h', label: '2 h (120 min)', mins: 120, L: 103 },
+    { key: '3h', label: '3 h (180 min)', mins: 180, L: 80  },
+    { key: '4h', label: '4 h (240 min)', mins: 240, L: 60  },
+  ],
+  rows: 5,
+  formula: (avgRel) => (avgRel + 2.7) / 7.69 // Método B final, según tu especificación
+};
+
+// Construye UI compacta por bloque (una sola vez)
+function buildMetodoBUI() {
+  const host = document.getElementById('areaB');
+  if (!host) return;
+  if (host.__built) return; // evitar reconstruir
+  const blocks = HILTI.times.map(t => {
+    const rows = Array.from({ length: HILTI.rows }, (_, i) => {
+      const n = i + 1;
+      return `
+        <tr>
+          <td data-label="#">${n}</td>
+          <td data-label="L. Clavo (mm)"><span class="cell-right">${t.L}</span></td>
+          <td data-label="Parte saliente (mm)">
+            <input type="number" min="0" step="0.1" name="sal_${t.key}_${n}" placeholder="mm">
+          </td>
+          <td data-label="L. incrustada (mm)"><span id="lin_${t.key}_${n}" class="cell-right">—</span></td>
+          <td data-label="Pull-out (N)">
+            <input type="number" min="0" step="1" name="pull_${t.key}_${n}" placeholder="N">
+          </td>
+          <td data-label="N/mm"><span id="rel_${t.key}_${n}" class="cell-right">—</span></td>
+        </tr>`;
+    }).join('');
+
+    return `
+      <div class="card" data-block="${t.key}">
+        <h3>Método B — ${t.label} • Clavo ${t.L} mm</h3>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>#</th><th>L. Clavo (mm)</th><th>Parte saliente (mm)</th>
+                <th>L. incrustada (mm)</th><th>Pull-out (N)</th><th>N/mm</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+            <tfoot>
+              <tr>
+                <td colspan="5"><b>Promedio N/mm</b></td>
+                <td><span id="avg_${t.key}" class="cell-right">—</span></td>
+              </tr>
+              <tr>
+                <td colspan="5"><b>Método B = (Promedio + 2.7) / 7.69</b></td>
+                <td><span id="mb_${t.key}" class="cell-right">—</span></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>`;
+  }).join('');
+
+  host.innerHTML = blocks;
+  host.__built = true;
+
+  // Enlazar eventos y botón "Limpiar"
+  host.querySelectorAll('input[type="number"]').forEach(inp => {
+    ['input','change','blur'].forEach(evt => inp.addEventListener(evt, recomputeMetodoB));
+  });
+  document.getElementById('resetB')?.addEventListener('click', () => {
+    host.querySelectorAll('input[type="number"]').forEach(i => i.value = '');
+    host.querySelectorAll('span[id^="lin_"], span[id^="rel_"], span[id^="avg_"], span[id^="mb_"]')
+        .forEach(s => s.textContent = '—');
+  });
+}
+
+// Recalcula todos los bloques en vivo
+function recomputeMetodoB() {
+  for (const t of HILTI.times) {
+    const rels = [];
+    for (let i = 1; i <= HILTI.rows; i++) {
+      const sal = Number(document.querySelector(`input[name="sal_${t.key}_${i}"]`)?.value);
+      const pull = Number(document.querySelector(`input[name="pull_${t.key}_${i}"]`)?.value);
+
+      const linEl = document.getElementById(`lin_${t.key}_${i}`);
+      const relEl = document.getElementById(`rel_${t.key}_${i}`);
+
+      if (!Number.isFinite(sal) && !Number.isFinite(pull)) {
+        if (linEl) linEl.textContent = '—';
+        if (relEl) relEl.textContent = '—';
+        continue;
+      }
+      if (!Number.isFinite(sal) || !Number.isFinite(pull)) {
+        if (linEl) linEl.textContent = '';
+        if (relEl) relEl.textContent = '';
+        continue;
+      }
+      const Lin = t.L - sal;
+      if (linEl) linEl.textContent = Lin > 0 ? formatNum(Lin) : '0';
+      let rel = (Lin > 0) ? (pull / Lin) : NaN;
+      if (Number.isFinite(rel) && rel >= 0) {
+        rels.push(rel);
+        if (relEl) relEl.textContent = formatNum(rel);
+      } else {
+        if (relEl) relEl.textContent = '';
+      }
+    }
+    const avgEl = document.getElementById(`avg_${t.key}`);
+    const mbEl  = document.getElementById(`mb_${t.key}`);
+    if (rels.length === HILTI.rows) {
+      const avg = mean(rels);
+      const mb  = HILTI.formula(avg);
+      if (avgEl) avgEl.textContent = formatNum(avg);
+      if (mbEl)  mbEl.textContent  = formatNum(mb);
+    } else {
+      if (avgEl) avgEl.textContent = '—';
+      if (mbEl)  mbEl.textContent  = '—';
+    }
+  }
+}
+
+// Valida y devuelve {avg, mb} por bloque o lanza error si incompleto
+function collectMetodoBBloque(t) {
+  let rels = [];
+  let anyFilled = false;
+
+  for (let i = 1; i <= HILTI.rows; i++) {
+    const salStr = document.querySelector(`input[name="sal_${t.key}_${i}"]`)?.value ?? '';
+    const pullStr= document.querySelector(`input[name="pull_${t.key}_${i}"]`)?.value ?? '';
+    const hasSal = salStr.trim() !== '';
+    const hasPul = pullStr.trim() !== '';
+    if (hasSal || hasPul) anyFilled = true;
+
+    if (!hasSal && !hasPul) continue; // fila vacía
+    if (!hasSal || !hasPul) {
+      throw new Error(`${t.label}: fila ${i} incompleta (saliente o pull-out).`);
+    }
+    const sal = Number(salStr), pull = Number(pullStr);
+    if (!Number.isFinite(sal) || sal < 0) {
+      throw new Error(`${t.label}: 'Parte saliente' inválida en fila ${i}.`);
+    }
+    if (!Number.isFinite(pull) || pull < 0) {
+      throw new Error(`${t.label}: 'Pull-out' inválido en fila ${i}.`);
+    }
+    const Lin = t.L - sal;
+    if (!(Lin > 0)) {
+      throw new Error(`${t.label}: L. incrustada ≤ 0 en fila ${i} (saliente ≥ L clavo).`);
+    }
+    const rel = pull / Lin;
+    if (!Number.isFinite(rel) || rel < 0) {
+      throw new Error(`${t.label}: Relación N/mm inválida en fila ${i}.`);
+    }
+    rels.push(rel);
+  }
+
+  if (!anyFilled) return null; // bloque omitido
+  if (rels.length !== HILTI.rows) {
+    throw new Error(`${t.label}: se requieren exactamente ${HILTI.rows} lecturas.`);
+  }
+
+  const avg = mean(rels);
+  const mb  = HILTI.formula(avg);
+  return { avg, mb };
+}
+
 // -------------------------
 // IndexedDB
 // -------------------------
 const DB_NAME = 'ce_qc_db';
-const DB_VER  = 4;
+const DB_VER = 4;
 let db;
-
 function openDB(){
   return new Promise((resolve, reject)=>{
     const req = indexedDB.open(DB_NAME, DB_VER);
@@ -168,7 +327,7 @@ function openDB(){
       mkStore('slump'); mkStore('resist'); mkStore('pernos');
     };
     req.onsuccess = ()=>{ db=req.result; resolve(db); };
-    req.onerror   = ()=> reject(req.error);
+    req.onerror = ()=> reject(req.error);
   });
 }
 function tx(store, mode='readonly'){ return db.transaction(store, mode).objectStore(store); }
@@ -177,28 +336,28 @@ function addRecord(store, rec){
   return new Promise((resolve,reject)=>{
     const r = tx(store,'readwrite').add(rec);
     r.onsuccess = ()=> resolve(rec);
-    r.onerror   = ()=> reject(r.error);
+    r.onerror = ()=> reject(r.error);
   });
 }
 function deleteRecord(store, id){
   return new Promise((resolve,reject)=>{
     const r = tx(store,'readwrite').delete(id);
     r.onsuccess = ()=> resolve(true);
-    r.onerror   = ()=> reject(r.error);
+    r.onerror = ()=> reject(r.error);
   });
 }
 function clearStore(store){
   return new Promise((resolve,reject)=>{
     const r = tx(store,'readwrite').clear();
     r.onsuccess = ()=> resolve(true);
-    r.onerror   = ()=> reject(r.error);
+    r.onerror = ()=> reject(r.error);
   });
 }
 function getAll(store){
   return new Promise((resolve,reject)=>{
     const r = tx(store).getAll();
     r.onsuccess = ()=> resolve(r.result || []);
-    r.onerror   = ()=> reject(r.error);
+    r.onerror = ()=> reject(r.error);
   });
 }
 
@@ -296,12 +455,11 @@ function wireFormSlump(){
       return;
     }
     const hsOut = fd.get('hsOut');
-    const hll   = fd.get('hll');
-    const dmin  = calcDelayMin(hll, hsOut);
+    const hll = fd.get('hll');
+    const dmin = calcDelayMin(hll, hsOut);
     const demoraText = (dmin===null) ? '' : `${minToHHMM(dmin)} (${dmin} min)`;
     const slumpValue = parsed.value;
     const ok = slumpValue >= LIMITS.slump.min && slumpValue <= LIMITS.slump.max;
-
     const rec = {
       fecha: fd.get('fecha'),
       labor: String(fd.get('labor')||'').trim(),
@@ -343,6 +501,7 @@ function wireResistUI(){
     const m = metodo?.value || 'A';
     boxA.style.display = (m==='A') ? '' : 'none';
     boxB.style.display = (m==='B') ? '' : 'none';
+    if (m === 'B') buildMetodoBUI(); // construir UI B al seleccionar
   }
   metodo?.addEventListener('change', syncMethod);
   syncMethod();
@@ -355,17 +514,17 @@ function bindMetodoALive(){
     try{
       const ta = document.querySelector(`textarea[name="incadosA_${key}"]`);
       const outProm = document.querySelector(`input[name="promA_${key}"]`);
-      const outMPa  = document.querySelector(`input[name="mpaA_${key}"]`);
+      const outMPa = document.querySelector(`input[name="mpaA_${key}"]`);
       if(!ta || !outProm || !outMPa) return;
       const list = parseNList(ta.value);
       if(list.length === 10){
         const nProm = list.reduce((a,b)=>a+b,0)/10;
-        const mpa   = mpaFromNpromA(nProm);
+        const mpa = mpaFromNpromA(nProm);
         outProm.value = nProm.toFixed(2);
-        outMPa.value  = mpa.toFixed(3);
+        outMPa.value = mpa.toFixed(3);
       }else{
         outProm.value = '';
-        outMPa.value  = '';
+        outMPa.value = '';
       }
     }catch(e){ console.error(e); }
   };
@@ -379,33 +538,28 @@ function bindMetodoALive(){
 // Resistencias iniciales — Submit
 // -------------------------
 function wireResistSubmit(){
-  const fRes = $('#formResist'); 
+  const fRes = $('#formResist');
   const stRes = $('#resistStatus');
-
   fRes?.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const fd = new FormData(fRes);
-
     const metodo = fd.get('metodo') || 'A';
-    const curva  = fd.get('curva')  || 'II';
-
+    const curva = fd.get('curva') || 'II';
     const comunes = {
       fecha: fd.get('fecha'),
       labor: String(fd.get('labor')||'').trim(),
       nivel: String(fd.get('nivel')||'').trim(),
-      obs:   String(fd.get('obs')||'').trim(),
+      obs: String(fd.get('obs')||'').trim(),
       metodo, curva
     };
-
     let saved = 0;
-
     if(metodo === 'A'){
       try{
         const spec = [
-          { key: '15', mins: 15,  label: '0.25 h (15 min)' },
-          { key: '30', mins: 30,  label: '0.50 h (30 min)' },
-          { key: '45', mins: 45,  label: '0.75 h (45 min)' },
-          { key: '60', mins: 60,  label: '1.00 h (60 min)' },
+          { key: '15', mins: 15, label: '0.25 h (15 min)' },
+          { key: '30', mins: 30, label: '0.50 h (30 min)' },
+          { key: '45', mins: 45, label: '0.75 h (45 min)' },
+          { key: '60', mins: 60, label: '1.00 h (60 min)' },
         ];
         // Validación: EXACTAMENTE 10 lecturas por tiempo
         for(const t of spec){
@@ -419,17 +573,15 @@ function wireResistSubmit(){
         for(const t of spec){
           const list = parseNList(fd.get(`incadosA_${t.key}`));
           const nProm = list.reduce((a,b)=>a+b,0) / 10;
-          const mpa   = mpaFromNpromA(nProm);
-
+          const mpa = mpaFromNpromA(nProm);
           // Reflejar en UI
           const promOut = fRes.querySelector(`input[name="promA_${t.key}"]`);
-          const mpaOut  = fRes.querySelector(`input[name="mpaA_${t.key}"]`);
+          const mpaOut = fRes.querySelector(`input[name="mpaA_${t.key}"]`);
           if(promOut) promOut.value = nProm.toFixed(2);
-          if(mpaOut)  mpaOut.value  = mpa.toFixed(3);
-
+          if(mpaOut) mpaOut.value = mpa.toFixed(3);
           await addRecord('resist', {
             ...comunes,
-            hora: '',  // opcional
+            hora: '', // opcional
             edad: `${String(Math.floor(t.mins/60)).padStart(2,'0')}:${String(t.mins%60).padStart(2,'0')}`,
             edadMin: t.mins,
             nProm,
@@ -444,20 +596,43 @@ function wireResistSubmit(){
         return;
       }
     } else {
-      // Método B (Hilti) — puedes completar aquí si lo necesitas ahora
-      setStatus(stRes, 'Método B no modificado en esta iteración.', 3000);
+      // ========= Método B (Hilti) =========
+      try{
+        for (const t of HILTI.times) {
+          const res = collectMetodoBBloque(t); // {avg, mb} o null
+          if (!res) continue; // bloque omitido
+          // Guardar un registro por bloque con 5 lecturas completas
+          await addRecord('resist', {
+            ...comunes,
+            hora: '', // opcional
+            edad: `${String(Math.floor(t.mins/60)).padStart(2,'0')}:${String(t.mins%60).padStart(2,'0')}`,
+            edadMin: t.mins,
+            nProm: res.avg,                  // Promedio N/mm del bloque
+            resistencia: res.mb              // MPa = (avg + 2.7) / 7.69
+          });
+          saved++;
+        }
+        if (saved === 0) {
+          setStatus(stRes, 'Método B: no hay bloques completos (5 lecturas).', 4000);
+          toast('Sin bloques completos en B','warn');
+          return;
+        }
+      } catch(err){
+        console.error(err);
+        setStatus(stRes, String(err?.message ?? 'Error en Método B'), 4500);
+        toast('Error en Método B','err');
+        return;
+      }
     }
-
     setStatus(stRes, `Guardado ${saved} lectura(s) ✅`, 3500);
     toast('Resistencias iniciales guardadas ✅','ok');
     await renderBD($('#fMes')?.value || '');
-
     // Actualiza gráfico log–log del día
-    try{ 
-      if(typeof window.runPythonResist==='function'){ 
-        const d=comunes.fecha; 
-        await window.runPythonResist(d, d); 
-      } 
+    try{
+      if(typeof window.runPythonResist==='function'){
+        const d=comunes.fecha;
+        await window.runPythonResist(d, d);
+      }
     }catch(_){}
   });
 }
@@ -545,22 +720,18 @@ function renderTblPernos(rows){
 // -------------------------
 async function updateKPIs(dayIso){
   const [slump, pernos] = await Promise.all([getAll('slump'), getAll('pernos')]);
-  const slumpF  = dayIso ? slump.filter(r=> r.fecha === dayIso) : slump;
+  const slumpF = dayIso ? slump.filter(r=> r.fecha === dayIso) : slump;
   const pernosF = dayIso ? pernos.filter(r=> r.fecha === dayIso) : pernos;
-
   const temps = slumpF.map(r=>Number(r.temp)).filter(v=>!Number.isNaN(v));
   const tProm = mean(temps);
   const tMin = temps.length ? Math.min(...temps) : null;
   const tMax = temps.length ? Math.max(...temps) : null;
-
   const hel = pernosF.reduce((a,r)=>a + (Number(r.cantHel)||0), 0);
-  const sw  = pernosF.reduce((a,r)=>a + (Number(r.cantSw) ||0), 0);
-
+  const sw = pernosF.reduce((a,r)=>a + (Number(r.cantSw) ||0), 0);
   $('#kpiTempProm').textContent = temps.length ? `${formatNum(tProm)} °C` : '—';
   $('#kpiTempExtra').textContent = temps.length ? `Min ${formatNum(tMin)} / Max ${formatNum(tMax)}` : 'Min — / Max —';
   $('#kpiPernosTotal').textContent = String(Math.round(hel+sw));
   $('#kpiPernosExtra').textContent = `Helicoidal ${Math.round(hel)} / Swellex ${Math.round(sw)}`;
-
   const resumen = $('#resumenReporte');
   if(resumen){
     resumen.innerHTML = `
@@ -649,24 +820,19 @@ function initDefaults(){
   if(sFecha) sFecha.value = d;
   if(rFecha) rFecha.value = d;
   if(pFecha) pFecha.value = d;
-
   const sHoraSl = $('#formSlump input[name="horaSlump"]');
   const sDemora = $('#formSlump input[name="demora"]');
   if(sHoraSl) sHoraSl.value = nowHHMM();
   if(sDemora) sDemora.value = '';
-
   const rHoraBase = $('#formResist input[name="horaBase"]');
   if(rHoraBase) rHoraBase.value = nowHHMM();
-
   const rHora = $('#formPernos input[name="hora"]');
   if(rHora) rHora.value = nowHHMM();
-
   const mes = $('#fMes');
   const dia = $('#rDia');
   if(mes) mes.value = thisMonth();
   if(dia) dia.value = d;
 }
-
 async function boot(){
   await openDB();
   initDefaults();
@@ -674,7 +840,7 @@ async function boot(){
   wireSlumpDelay();
   wireFormSlump();
   wireResistUI();
-  bindMetodoALive();     // <— cálculo en vivo para Método A
+  bindMetodoALive(); // cálculo en vivo para Método A
   wireResistSubmit();
   wireBDButtons();
   wireReportButtons();
