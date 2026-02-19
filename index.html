@@ -4,17 +4,13 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CE - Control de Calidad (Offline)</title>
-
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#E5E7EB"/>
-
   <link rel="stylesheet" href="styles.css" />
-
-  <!-- PyScript (CDN). Para Python 100% offline luego se pasa a local y cache en sw.js -->
+  <!-- PyScript (CDN). Para funcionamiento 100% offline, mover a vendor local y precache en sw.js -->
   <link rel="stylesheet" href="https://pyscript.net/releases/2026.1.1/core.css" />
   <script type="module" src="https://pyscript.net/releases/2026.1.1/core.js"></script>
 </head>
-
 <body>
 <header class="app-header">
   <div class="brand">
@@ -28,24 +24,21 @@
 
 <nav class="tabs" role="tablist" aria-label="Pestañas">
   <button class="tab active" data-tab="slump" role="tab" aria-selected="true">1. Slump y T°</button>
-  <button class="tab" data-tab="resist" role="tab" aria-selected="false">2. Resistencias</button>
+  <button class="tab" data-tab="resist" role="tab" aria-selected="false">2. Resistencias iniciales</button>
   <button class="tab" data-tab="pernos" role="tab" aria-selected="false">3. Pernos</button>
   <button class="tab" data-tab="bd" role="tab" aria-selected="false">4. Base de Datos</button>
   <button class="tab" data-tab="reporte" role="tab" aria-selected="false">5. Reporte</button>
 </nav>
 
 <main class="container">
-
   <!-- TAB 1: SLUMP -->
   <section id="tab-slump" class="panel active" role="tabpanel">
     <div class="panel-head">
       <h2>Slump y Temperatura</h2>
       <p class="muted">Registro de control (Slump en pulgadas) + variables de mezcla.</p>
     </div>
-
     <form id="formSlump" class="card">
       <div class="slump-layout">
-
         <div class="slump-main">
           <div class="grid grid-4">
             <div>
@@ -69,7 +62,7 @@
           <div class="grid grid-4 mt-12">
             <div>
               <label>Slump (pulgadas)</label>
-              <input type="text" name="slumpIn" placeholder='Ej. 9 3/4" | 10 1/4" | 9.75"' required />
+              <input type="text" name="slumpIn" placeholder='Ej. 9 3/4" \n 10 1/4" \n 9.75"' required />
               <small class="hint">Acepta: 9 3/4", 10 1/4", 7/8", 9.75"</small>
             </div>
             <div>
@@ -97,7 +90,6 @@
             <button class="btn" type="submit">Guardar</button>
             <button class="btn btn-secondary" type="reset">Limpiar</button>
           </div>
-
           <div class="inline-status" id="slumpStatus" aria-live="polite"></div>
         </div>
 
@@ -126,17 +118,16 @@
             <div class="hint mt-12">La demora se calcula como H_LL - HS (si cruza medianoche, se ajusta).</div>
           </div>
         </aside>
-
       </div>
     </form>
   </section>
 
-  <!-- TAB 2: RESISTENCIAS (Método A tabulado fijo) -->
+  <!-- TAB 2: RESISTENCIAS INICIALES -->
   <section id="tab-resist" class="panel" role="tabpanel">
     <div class="panel-head">
-      <h2>Resistencias tempranas — Método A</h2>
+      <h2>Resistencias iniciales — UNE EN 14488-2</h2>
       <p class="muted">
-        Se toman 10 incados (N máximos) por tiempo. La app calcula MPa = (N̄ − 27) / 526 y grafica log–log con J1/J2/J3.
+        Ingreso según Método A (Penetrómetro, 5 fuerzas N) o Método B (Hilti). Se calcula Promedio/Relación y MPa con la curva de calibración seleccionada.
       </p>
     </div>
 
@@ -147,8 +138,8 @@
           <input type="date" name="fecha" required />
         </div>
         <div>
-          <label>Hora (HRS)</label>
-          <input type="time" name="hora" required />
+          <label>Hora de muestreo base (HRS)</label>
+          <input type="time" name="horaBase" required />
         </div>
         <div>
           <label>Labor</label>
@@ -160,72 +151,57 @@
         </div>
       </div>
 
-      <div class="resist-table mt-12">
-        <div class="resist-head">
-          <div>Tiempo</div>
-          <div>10 incados (N máximos)</div>
-          <div>MPa (calculado)</div>
-        </div>
-
-        <div class="resist-row">
-          <div class="tcell"><span class="tag-time">15 min</span></div>
-          <div class="tcell">
-            <textarea name="incadosN_15" rows="2" placeholder="10 valores N separados por espacio" required></textarea>
-          </div>
-          <div class="tcell">
-            <input type="text" name="mpa_15" readonly placeholder="—" />
-          </div>
-        </div>
-
-        <div class="resist-row">
-          <div class="tcell"><span class="tag-time">30 min</span></div>
-          <div class="tcell">
-            <textarea name="incadosN_30" rows="2" placeholder="10 valores N separados por espacio" required></textarea>
-          </div>
-          <div class="tcell">
-            <input type="text" name="mpa_30" readonly placeholder="—" />
-          </div>
-        </div>
-
-        <div class="resist-row">
-          <div class="tcell"><span class="tag-time">45 min</span></div>
-          <div class="tcell">
-            <textarea name="incadosN_45" rows="2" placeholder="10 valores N separados por espacio" required></textarea>
-          </div>
-          <div class="tcell">
-            <input type="text" name="mpa_45" readonly placeholder="—" />
-          </div>
-        </div>
-
-        <div class="resist-row">
-          <div class="tcell"><span class="tag-time">60 min</span></div>
-          <div class="tcell">
-            <textarea name="incadosN_60" rows="2" placeholder="10 valores N separados por espacio" required></textarea>
-          </div>
-          <div class="tcell">
-            <input type="text" name="mpa_60" readonly placeholder="—" />
-          </div>
-        </div>
-      </div>
-
       <div class="grid mt-12">
+        <div>
+          <label>Método</label>
+          <select name="metodo" id="metodo" required>
+            <option value="A">A — Penetrómetro</option>
+            <option value="B">B — Hilti</option>
+          </select>
+        </div>
+        <div>
+          <label>Curva de calibración</label>
+          <select name="curva" id="curva">
+            <option value="II">II (0–16 mm)</option>
+            <option value="I">I</option>
+            <option value="III">III</option>
+          </select>
+        </div>
         <div class="col-span-2">
           <label>Observaciones</label>
           <input type="text" name="obs" placeholder="Opcional" />
         </div>
       </div>
 
-      <div class="actions">
-        <button class="btn" type="submit">Guardar (15/30/45/60)</button>
-        <button class="btn btn-secondary" type="reset">Limpiar</button>
+      <!-- MÉTODO A -->
+      <div id="resA" class="card mt-12">
+        <h3>Método A — Penetrómetro (5 fuerzas N por lectura)</h3>
+        <div class="hint">Ingresa una o varias lecturas; la “hora acumulada” se calcula desde la hora base.</div>
+        <div id="areaA"></div>
+        <div class="actions left">
+          <button type="button" id="addRowA" class="btn">Agregar lectura A</button>
+        </div>
       </div>
 
+      <!-- MÉTODO B -->
+      <div id="resB" class="card mt-12" style="display:none">
+        <h3>Método B — Hilti</h3>
+        <div class="hint">Completa los parámetros por lectura (Longitudes, Pull-out). Calcula Relación N/mm y MPa.</div>
+        <div id="areaB"></div>
+        <div class="actions left">
+          <button type="button" id="addRowB" class="btn">Agregar lectura B</button>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn" type="submit">Guardar lecturas</button>
+        <button class="btn btn-secondary" type="reset">Limpiar</button>
+      </div>
       <div class="inline-status" id="resistStatus" aria-live="polite"></div>
-      <div class="hint mt-12">Se guardan 4 registros (uno por tiempo). Luego se actualiza el gráfico y también se muestra en Reporte.</div>
     </form>
 
     <div class="card">
-      <h3>Curva de resistencias (log–log) + J1/J2/J3</h3>
+      <h3>Resistencias iniciales (log–log)</h3>
       <img id="chartResistImg" class="chart-img" alt="Gráfico Resistencias (Python)" />
       <canvas id="chartResistCv" class="chart-cv" width="920" height="560"></canvas>
     </div>
@@ -237,7 +213,6 @@
       <h2>Instalación de Pernos</h2>
       <p class="muted">Registra tipo y cantidad instalada por labor.</p>
     </div>
-
     <form id="formPernos" class="card">
       <div class="grid">
         <div>
@@ -256,7 +231,6 @@
           <label>Nivel</label>
           <input type="text" name="nivel" required />
         </div>
-
         <div class="col-span-2">
           <label>Tipo de perno</label>
           <div class="checks">
@@ -265,7 +239,6 @@
           </div>
           <small class="hint">Marca uno o ambos e ingresa cantidades.</small>
         </div>
-
         <div>
           <label>Cantidad Helicoidal</label>
           <input type="number" name="cantHel" id="cantHel" min="0" step="1" value="0" disabled />
@@ -274,13 +247,11 @@
           <label>Cantidad Swellex</label>
           <input type="number" name="cantSw" id="cantSw" min="0" step="1" value="0" disabled />
         </div>
-
         <div class="col-span-2">
           <label>Observaciones</label>
           <input type="text" name="obs" placeholder="Opcional" />
         </div>
       </div>
-
       <div class="actions">
         <button class="btn" type="submit">Guardar</button>
         <button class="btn btn-secondary" type="reset">Limpiar</button>
@@ -295,7 +266,6 @@
       <h2>Base de Datos (por mes)</h2>
       <p class="muted">Filtra por mes y gestiona registros.</p>
     </div>
-
     <div class="card">
       <div class="grid">
         <div>
@@ -318,11 +288,11 @@
       <div class="table-wrap">
         <table class="table" id="tblSlump">
           <thead>
-            <tr>
-              <th>Fecha</th><th>Hora Slump</th><th>Labor</th><th>Nivel</th>
-              <th>Slump</th><th>T°</th><th>Presión</th><th>Mixer</th>
-              <th>HS</th><th>H_LL</th><th>Demora</th><th></th>
-            </tr>
+          <tr>
+            <th>Fecha</th><th>Hora Slump</th><th>Labor</th><th>Nivel</th>
+            <th>Slump</th><th>T°</th><th>Presión</th><th>Mixer</th>
+            <th>HS</th><th>H_LL</th><th>Demora</th><th></th>
+          </tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -334,9 +304,9 @@
       <div class="table-wrap">
         <table class="table" id="tblResist">
           <thead>
-            <tr>
-              <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th><th>Edad</th><th>MPa</th><th></th>
-            </tr>
+          <tr>
+            <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th><th>Método</th><th>Edad</th><th>MPa</th><th></th>
+          </tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -348,9 +318,9 @@
       <div class="table-wrap">
         <table class="table" id="tblPernos">
           <thead>
-            <tr>
-              <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th><th>Helicoidal</th><th>Swellex</th><th></th>
-            </tr>
+          <tr>
+            <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th><th>Helicoidal</th><th>Swellex</th><th></th>
+          </tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -364,7 +334,6 @@
       <h2>Reporte diario</h2>
       <p class="muted">Reporte por día (WhatsApp / PDF).</p>
     </div>
-
     <div class="card">
       <div class="grid">
         <div>
@@ -385,14 +354,12 @@
           <div class="kpi-value" id="kpiTempProm">—</div>
           <div class="kpi-sub muted" id="kpiTempExtra">Min — / Max —</div>
         </div>
-
         <div class="kpi-big">
           <div class="kpi-title">Pernos Instalados</div>
           <div class="kpi-value" id="kpiPernosTotal">0</div>
           <div class="kpi-sub muted" id="kpiPernosExtra">Helicoidal 0 / Swellex 0</div>
         </div>
       </div>
-
       <p class="hint">En celular: Exportar PDF → Guardar como PDF → Compartir.</p>
     </div>
 
@@ -402,7 +369,6 @@
         <img id="chartSlumpImg" class="chart-img" alt="Gráfico Slump (Python)" />
         <canvas id="chartSlumpCv" class="chart-cv" width="920" height="560"></canvas>
       </div>
-
       <div class="card">
         <h3>Presión de aire promedio por Labor</h3>
         <img id="chartAireImg" class="chart-img" alt="Gráfico Aire (Python)" />
@@ -410,9 +376,8 @@
       </div>
     </div>
 
-    <!-- ✅ NUEVO: gráfico resistencias en Reporte -->
     <div class="card">
-      <h3>Resistencias tempranas (log–log) + J1/J2/J3</h3>
+      <h3>Resistencias iniciales (log–log)</h3>
       <img id="chartResistImgReport" class="chart-img" alt="Gráfico Resistencias (Python)" />
       <canvas id="chartResistCvReport" class="chart-cv" width="920" height="560"></canvas>
       <div class="hint mt-12">Se actualiza automáticamente cuando guardas Resistencias o cuando presionas “Actualizar”.</div>
@@ -423,7 +388,6 @@
       <div id="resumenReporte" class="muted"></div>
     </div>
   </section>
-
 </main>
 
 <footer class="footer">
@@ -432,10 +396,8 @@
 </footer>
 
 <script src="app.js"></script>
-
 <!-- PyScript -->
 <script type="py" src="report.py" config="pyscript.json" worker></script>
-
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -443,6 +405,5 @@
     });
   }
 </script>
-
 </body>
 </html>
