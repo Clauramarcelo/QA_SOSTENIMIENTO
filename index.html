@@ -174,14 +174,65 @@
       </div>
 
       <!-- MÉTODO A -->
-      <div id="resA" class="card mt-12">
-        <h3>Método A — Penetrómetro (5 fuerzas N por lectura)</h3>
-        <div class="hint">Ingresa una o varias lecturas; la “hora acumulada” se calcula desde la hora base.</div>
-        <div id="areaA"></div>
-        <div class="actions left">
-          <button type="button" id="addRowA" class="btn">Agregar lectura A</button>
-        </div>
-      </div>
+<div id="resA" class="card mt-12">
+  <h3>Método A — Penetrómetro (10 lecturas en N por tiempo)</h3>
+  <div class="hint">
+    Ingresa 10 lecturas (N) separadas por espacio o salto de línea para cada tiempo. 
+    Se calculará MPa = (N̄ − 37) / 526.
+  </div>
+
+  <!-- 0.25 h (15 min) -->
+  <div class="card">
+    <div class="grid">
+      <div><label>Tiempo</label><input type="text" value="0.25 h (15 min)" readonly></div>
+      <div><label>Promedio (N)</label><input type="text" name="promA_15" readonly></div>
+      <div><label>MPa</label><input type="text" name="mpaA_15" readonly></div>
+    </div>
+    <div class="mt-12">
+      <label>10 lecturas (N) — 0.25 h</label>
+      <textarea name="incadosA_15" rows="3" placeholder="Ej.: 150 162 171 158 165 160 170 155 168 163" required></textarea>
+    </div>
+  </div>
+
+  <!-- 0.50 h (30 min) -->
+  <div class="card">
+    <div class="grid">
+      <div><label>Tiempo</label><input type="text" value="0.50 h (30 min)" readonly></div>
+      <div><label>Promedio (N)</label><input type="text" name="promA_30" readonly></div>
+      <div><label>MPa</label><input type="text" name="mpaA_30" readonly></div>
+    </div>
+    <div class="mt-12">
+      <label>10 lecturas (N) — 0.50 h</label>
+      <textarea name="incadosA_30" rows="3" placeholder="10 valores separados por espacio o enter" required></textarea>
+    </div>
+  </div>
+
+  <!-- 0.75 h (45 min) -->
+  <div class="card">
+    <div class="grid">
+      <div><label>Tiempo</label><input type="text" value="0.75 h (45 min)" readonly></div>
+      <div><label>Promedio (N)</label><input type="text" name="promA_45" readonly></div>
+      <div><label>MPa</label><input type="text" name="mpaA_45" readonly></div>
+    </div>
+    <div class="mt-12">
+      <label>10 lecturas (N) — 0.75 h</label>
+      <textarea name="incadosA_45" rows="3" placeholder="10 valores separados por espacio o enter" required></textarea>
+    </div>
+  </div>
+
+  <!-- 1.00 h (60 min) -->
+  <div class="card">
+    <div class="grid">
+      <div><label>Tiempo</label><input type="text" value="1.00 h (60 min)" readonly></div>
+      <div><label>Promedio (N)</label><input type="text" name="promA_60" readonly></div>
+      <div><label>MPa</label><input type="text" name="mpaA_60" readonly></div>
+    </div>
+    <div class="mt-12">
+      <label>10 lecturas (N) — 1.00 h</label>
+      <textarea name="incadosA_60" rows="3" placeholder="10 valores separados por espacio o enter" required></textarea>
+    </div>
+  </div>
+</div>
 
       <!-- MÉTODO B -->
       <div id="resB" class="card mt-12" style="display:none">
