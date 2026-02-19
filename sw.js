@@ -1,6 +1,5 @@
 // Service Worker - cache básico para uso offline
-const CACHE_NAME = 'ce-offline-v11'; // ✅ única versión aquí
-
+const CACHE_NAME = 'ce-offline-v12';
 const ASSETS = [
   './',
   './index.html',
@@ -8,18 +7,14 @@ const ASSETS = [
   './app.js',
   './manifest.json',
   './report.py',
-  './pyscript.json',
+  './pyscript.json',    // quítalo si no lo vas a incluir
   './icons/icon-192.png',
   './icons/icon-512.png'
 ];
-
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)));
   self.skipWaiting();
 });
-
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then(keys =>
@@ -28,15 +23,12 @@ self.addEventListener('activate', (event) => {
   );
   self.clients.claim();
 });
-
 self.addEventListener('fetch', (event) => {
   const req = event.request;
-
   if (req.mode === 'navigate') {
     event.respondWith(fetch(req).catch(() => caches.match('./index.html')));
     return;
   }
-
   event.respondWith(
     caches.match(req).then(cached => {
       if (cached) return cached;
