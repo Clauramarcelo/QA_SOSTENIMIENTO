@@ -1,14 +1,14 @@
 // CE - Control de Calidad (Offline)
 // app.js: Slump (demora), Resistencias iniciales (UNE EN 14488-2 A/B), Pernos,
 // BD por mes, Reporte diario, y gráficos con PyScript.
-// Basado en tu app original (IndexedDB, tabs, KPIs, reporte). [1](https://volcanperu-my.sharepoint.com/personal/claura_volcan_com_pe/Documents/Archivos%20de%20Microsoft%C2%A0Copilot%20Chat/styles.css)
 
-/*** Config ***/
+// -------------------------
+// Config básica
+// -------------------------
 const LIMITS = { slump: { min: 8, max: 11 } };
 
-/*** Calibraciones (B opcional) ***/
+// (Opcional) Calibración Método B (Hilti) si lo usas
 const CALIB = {
-  // Método B (Hilti) — dejar como referencia (puedes ajustar cuando lo definas)
   B: {
     II: { type:'linear', a: 0.13003901170351106, b: 0.35110533159948026, label:'B–II (local 26/01/2026)' }
   }
@@ -30,7 +30,7 @@ function setStatus(el, msg, ms=2500){
   if(ms) setTimeout(()=>{ if(el.textContent===msg) el.textContent=''; }, ms);
 }
 
-// ESCAPE SEGURO (anti-XSS)
+// Escape seguro (anti-XSS)
 function esc(s){
   const str = String(s ?? '');
   return str
@@ -63,7 +63,9 @@ function inRange(dateIso, desdeIso, hastaIso){
   return true;
 }
 
-/*** Time helpers ***/
+// -------------------------
+// Time helpers
+// -------------------------
 function timeToMin(hhmm){
   if(!hhmm) return null;
   const [h,m] = String(hhmm).split(':').map(Number);
@@ -84,7 +86,9 @@ function calcDelayMin(hll, hs){
   return d;
 }
 
-/*** Slump parser (pulgadas) ***/
+// -------------------------
+// Slump parser (pulgadas)
+// -------------------------
 function parseInchFraction(input){
   if(input === null || input === undefined) return null;
   let s = String(input).trim();
@@ -96,7 +100,7 @@ function parseInchFraction(input){
     const v = Number(s);
     return { value: v, text: `${formatNum(v)}"` };
   }
-  // a b/c  or  b/c
+  // a b/c  o  b/c
   const parts = s.split(' ');
   let whole = 0, frac = null;
   if(parts.length === 1){ frac = parts[0]; }
@@ -112,7 +116,9 @@ function parseInchFraction(input){
   return { value, text };
 }
 
-/*** Método A helpers ***/
+// -------------------------
+// Método A helpers (fórmula solicitada)
+// -------------------------
 function parseNList(text){
   if(!text) return [];
   return String(text)
@@ -126,19 +132,23 @@ function parseNList(text){
     .filter(v => !Number.isNaN(v));
 }
 function mpaFromNpromA(nProm){
-  // Fórmula solicitada: MPa = max(0, (N̄ - 37)/526)
+  // MPa = max(0, (N̄ - 37) / 526)
   const mpa = (nProm - 37) / 526;
   return Math.max(0, mpa);
 }
 
-/*** Método B helpers (opcional) ***/
+// -------------------------
+// (Opcional) Método B helpers
+// -------------------------
 function calcMPaB(curva, rel){
   const c = (CALIB.B[curva] || CALIB.B.II);
   const mpa = (c?.a ?? 0)*rel + (c?.b ?? 0);
   return Math.max(0, mpa);
 }
 
-/*** IndexedDB ***/
+// -------------------------
+// IndexedDB
+// -------------------------
 const DB_NAME = 'ce_qc_db';
 const DB_VER  = 4;
 let db;
@@ -192,7 +202,9 @@ function getAll(store){
   });
 }
 
-/*** Export para PyScript ***/
+// -------------------------
+// Export para PyScript
+// -------------------------
 window.ceExportData = async function(desdeIso, hastaIso){
   const [slump, resist, pernos] = await Promise.all([ getAll('slump'), getAll('resist'), getAll('pernos') ]);
   const f = (arr) => arr.filter(r => inRange(r.fecha, desdeIso, hastaIso));
@@ -204,7 +216,9 @@ window.ceExportData = async function(desdeIso, hastaIso){
   };
 };
 
-/*** UI (toast/offline) ***/
+// -------------------------
+// UI (toast / offline)
+// -------------------------
 function toast(msg, type='ok', ms=2400){
   let el = $('#toast');
   if(!el){
@@ -232,7 +246,9 @@ function setOfflineBadge(){
   paint();
 }
 
-/*** Tabs ***/
+// -------------------------
+// Tabs
+// -------------------------
 function showTab(name){
   $$('.tab').forEach(t=>{
     const on = t.dataset.tab === name;
@@ -252,7 +268,9 @@ function wireTabs(){
   if(last) showTab(last);
 }
 
-/*** Slump: wiring y demora ***/
+// -------------------------
+// Slump: wiring + demora
+// -------------------------
 function wireSlumpDelay(){
   const hs = $('#formSlump input[name="hsOut"]');
   const hll= $('#formSlump input[name="hll"]');
@@ -314,12 +332,13 @@ function wireFormSlump(){
   });
 }
 
-/*** Resistencias iniciales — UI toggle (A/B) ***/
+// -------------------------
+// Resistencias iniciales — UI toggle (A/B)
+// -------------------------
 function wireResistUI(){
   const metodo = $('#metodo');
   const boxA = $('#resA');
   const boxB = $('#resB');
-
   function syncMethod(){
     const m = metodo?.value || 'A';
     boxA.style.display = (m==='A') ? '' : 'none';
@@ -329,7 +348,36 @@ function wireResistUI(){
   syncMethod();
 }
 
-/*** Resistencias iniciales — Submit ***/
+// Cálculo en vivo para Método A (4 tiempos fijos)
+function bindMetodoALive(){
+  const spec = [{ key:'15' }, { key:'30' }, { key:'45' }, { key:'60' }];
+  const onChange = (key)=>{
+    try{
+      const ta = document.querySelector(`textarea[name="incadosA_${key}"]`);
+      const outProm = document.querySelector(`input[name="promA_${key}"]`);
+      const outMPa  = document.querySelector(`input[name="mpaA_${key}"]`);
+      if(!ta || !outProm || !outMPa) return;
+      const list = parseNList(ta.value);
+      if(list.length === 10){
+        const nProm = list.reduce((a,b)=>a+b,0)/10;
+        const mpa   = mpaFromNpromA(nProm);
+        outProm.value = nProm.toFixed(2);
+        outMPa.value  = mpa.toFixed(3);
+      }else{
+        outProm.value = '';
+        outMPa.value  = '';
+      }
+    }catch(e){ console.error(e); }
+  };
+  spec.forEach(({key})=>{
+    const ta = document.querySelector(`textarea[name="incadosA_${key}"]`);
+    if(ta){ ['input','change','blur'].forEach(evt => ta.addEventListener(evt, ()=> onChange(key))); }
+  });
+}
+
+// -------------------------
+// Resistencias iniciales — Submit
+// -------------------------
 function wireResistSubmit(){
   const fRes = $('#formResist'); 
   const stRes = $('#resistStatus');
@@ -352,49 +400,51 @@ function wireResistSubmit(){
     let saved = 0;
 
     if(metodo === 'A'){
-      // Tiempos fijos: 15, 30, 45, 60 min
-      const spec = [
-        { key: '15', label: '0.25 h (15 min)', mins: 15 },
-        { key: '30', label: '0.50 h (30 min)', mins: 30 },
-        { key: '45', label: '0.75 h (45 min)', mins: 45 },
-        { key: '60', label: '1.00 h (60 min)', mins: 60 },
-      ];
-
-      // Validación estricta: 10 lecturas en cada tiempo
-      for(const t of spec){
-        const list = parseNList(fd.get(`incadosA_${t.key}`));
-        if(list.length !== 10){
-          setStatus(stRes, `Tiempo ${t.label}: se requieren exactamente 10 lecturas (N).`, 4500);
-          return;
+      try{
+        const spec = [
+          { key: '15', mins: 15,  label: '0.25 h (15 min)' },
+          { key: '30', mins: 30,  label: '0.50 h (30 min)' },
+          { key: '45', mins: 45,  label: '0.75 h (45 min)' },
+          { key: '60', mins: 60,  label: '1.00 h (60 min)' },
+        ];
+        // Validación: EXACTAMENTE 10 lecturas por tiempo
+        for(const t of spec){
+          const list = parseNList(fd.get(`incadosA_${t.key}`));
+          if(list.length !== 10){
+            setStatus(stRes, `Tiempo ${t.label}: se requieren exactamente 10 lecturas (N).`, 4500);
+            return;
+          }
         }
-      }
+        // Calcular/guardar 4 registros
+        for(const t of spec){
+          const list = parseNList(fd.get(`incadosA_${t.key}`));
+          const nProm = list.reduce((a,b)=>a+b,0) / 10;
+          const mpa   = mpaFromNpromA(nProm);
 
-      // Calcular y guardar 4 registros
-      for(const t of spec){
-        const list = parseNList(fd.get(`incadosA_${t.key}`));
-        const nProm = list.reduce((a,b)=>a+b,0) / 10;
-        const mpa = mpaFromNpromA(nProm);
+          // Reflejar en UI
+          const promOut = fRes.querySelector(`input[name="promA_${t.key}"]`);
+          const mpaOut  = fRes.querySelector(`input[name="mpaA_${t.key}"]`);
+          if(promOut) promOut.value = nProm.toFixed(2);
+          if(mpaOut)  mpaOut.value  = mpa.toFixed(3);
 
-        // Escribir Promedio/MPa en read-only (UI)
-        const promOut = fRes.querySelector(`input[name="promA_${t.key}"]`);
-        const mpaOut  = fRes.querySelector(`input[name="mpaA_${t.key}"]`);
-        if(promOut) promOut.value = nProm.toFixed(2);
-        if(mpaOut)  mpaOut.value  = mpa.toFixed(3);
-
-        await addRecord('resist', {
-          ...comunes,
-          hora: '',  // opcional (si quieres, podemos derivarla de una hora base)
-          edad: `${String(Math.floor(t.mins/60)).padStart(2,'0')}:${String(t.mins%60).padStart(2,'0')}`,
-          edadMin: t.mins,
-          nProm,
-          resistencia: mpa
-        });
-        saved++;
+          await addRecord('resist', {
+            ...comunes,
+            hora: '',  // opcional
+            edad: `${String(Math.floor(t.mins/60)).padStart(2,'0')}:${String(t.mins%60).padStart(2,'0')}`,
+            edadMin: t.mins,
+            nProm,
+            resistencia: mpa
+          });
+          saved++;
+        }
+      }catch(err){
+        console.error(err);
+        setStatus(stRes, 'Error al procesar Método A. Revisa que las 10 lecturas sean números.', 4500);
+        toast('Error en Método A','err');
+        return;
       }
     } else {
-      // Método B (Hilti) — ejemplo mínimo (mantener si ya lo usas)
-      // Si tu HTML mantiene areaB/addRowB dinámicos, podemos reactivar
-      // la versión completa. Por ahora dejamos un aviso.
+      // Método B (Hilti) — puedes completar aquí si lo necesitas ahora
       setStatus(stRes, 'Método B no modificado en esta iteración.', 3000);
     }
 
@@ -402,7 +452,7 @@ function wireResistSubmit(){
     toast('Resistencias iniciales guardadas ✅','ok');
     await renderBD($('#fMes')?.value || '');
 
-    // Actualiza gráfico log–log del día (Python)
+    // Actualiza gráfico log–log del día
     try{ 
       if(typeof window.runPythonResist==='function'){ 
         const d=comunes.fecha; 
@@ -412,7 +462,9 @@ function wireResistSubmit(){
   });
 }
 
-/*** BD por mes ***/
+// -------------------------
+// BD por mes
+// -------------------------
 async function renderBD(month=''){
   const [slump, resist, pernos] = await Promise.all([getAll('slump'), getAll('resist'), getAll('pernos')]);
   const fMonth = (arr)=> month ? arr.filter(r => monthKey(r.fecha) === month) : arr;
@@ -488,7 +540,9 @@ function renderTblPernos(rows){
   }).join('');
 }
 
-/*** Reporte diario KPIs ***/
+// -------------------------
+// Reporte diario KPIs
+// -------------------------
 async function updateKPIs(dayIso){
   const [slump, pernos] = await Promise.all([getAll('slump'), getAll('pernos')]);
   const slumpF  = dayIso ? slump.filter(r=> r.fecha === dayIso) : slump;
@@ -517,7 +571,9 @@ async function updateKPIs(dayIso){
   }
 }
 
-/*** Botoneras BD/Reporte/Borrado ***/
+// -------------------------
+// Botoneras BD/Reporte/Borrado
+// -------------------------
 function wireBDButtons(){
   $('#btnFiltrar')?.addEventListener('click', async ()=>{
     await renderBD($('#fMes')?.value || '');
@@ -564,7 +620,9 @@ function wireReportButtons(){
   $('#btnPDF')?.addEventListener('click', ()=> window.print());
 }
 
-/*** Deletes ***/
+// -------------------------
+// Deletes
+// -------------------------
 function wireDeletes(){
   document.addEventListener('click', async (e)=>{
     const b = e.target.closest('[data-del]');
@@ -580,7 +638,9 @@ function wireDeletes(){
   });
 }
 
-/*** Init / Defaults ***/
+// -------------------------
+// Init / Defaults
+// -------------------------
 function initDefaults(){
   const d = todayISO();
   const sFecha = $('#formSlump input[name="fecha"]');
@@ -614,6 +674,7 @@ async function boot(){
   wireSlumpDelay();
   wireFormSlump();
   wireResistUI();
+  bindMetodoALive();     // <— cálculo en vivo para Método A
   wireResistSubmit();
   wireBDButtons();
   wireReportButtons();
