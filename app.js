@@ -29,11 +29,11 @@ function setStatus(el, msg, ms=2500){
 function esc(s){
   const str = String(s ?? '');
   return str
-  .replace(/&/g, '&')
-  .replace(/</g, '<')
-  .replace(/>/g, '>')
-  .replace(/\x22/g, '"')
-  .replace(/'/g, '\'');
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
 }
 function formatNum(v){
   if(v === null || v === undefined || Number.isNaN(v)) return '';
