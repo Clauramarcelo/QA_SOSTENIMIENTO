@@ -2,7 +2,7 @@
 // Estrategia: precache de app shell + cache-first (same-origin) con actualización perezosa.
 // Sube la versión en cada despliegue para forzar actualización del caché.
 
-const CACHE_NAME = 'ce-offline-v15';
+const CACHE_NAME = 'ce-offline-v16';
 
 // ⚠️ Asegúrate de que TODOS estos archivos existan en producción.
 // Si NO usas alguno (p.ej. pyscript.json), elimínalo del array.
