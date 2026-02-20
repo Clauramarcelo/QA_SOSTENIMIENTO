@@ -12,7 +12,7 @@
   <!-- Estilos -->
   <link rel="stylesheet" href="styles.css" />
 
-  <!-- PyScript (CDN). El SW lo precachea para 100% offline tras la 1ra carga -->
+  <!-- PyScript (CDN) -->
   <link rel="stylesheet" href="https://pyscript.net/releases/2026.1.1/core.css" />
   <script type="module" src="https://pyscript.net/releases/2026.1.1/core.js"></script>
 </head>
@@ -68,7 +68,7 @@
           <div class="grid grid-4 mt-12">
             <div>
               <label>Slump (pulgadas)</label>
-              <input type="text" name="slumpIn" placeholder='Ej. 9 3/4"  |  10 1/4"  |  9.75"' required />
+              <input type="text" name="slumpIn" placeholder='Ej. 9 3/4"   10 1/4"   9.75"' required />
               <small class="hint">Acepta: 9 3/4", 10 1/4", 7/8", 9.75"</small>
             </div>
             <div>
@@ -458,10 +458,10 @@
   <span id="offlineBadge" class="badge">Online</span>
 </footer>
 
-<!-- Lógica de la app -->
+<!-- Lógica de la app (JS) -->
 <script src="app.js"></script>
 
-<!-- PyScript (tu lógica Python para gráficos y curvas J1/J2/J3) -->
+<!-- PyScript: tu lógica Python para curvas J1/J2/J3 + puntos A/B -->
 <script type="py" src="report.py" config="pyscript.json" worker></script>
 
 <!-- Service Worker -->
