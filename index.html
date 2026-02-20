@@ -3,19 +3,35 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CE - Control de Calidad (Offline)</title>
+  <title>QA - Control de Calidad (Offline)</title>
 
-  <!-- PWA -->
-  <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#E5E7EB"/>
+<!-- PWA -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#E5E7EB"/>
 
-  <!-- Estilos -->
-  <link rel="stylesheet" href="styles.css" />
+<!-- Estilos -->
+<link rel="stylesheet" href="styles.css" />
 
-  <!-- PyScript (CDN) -->
-  <link rel="stylesheet" href="https://pyscript.net/releases/2026.1.1/core.css" />
-  <script type="module" src="https://pyscript.net/releases/2026.1.1/core.js"></script>
+<!-- PyScript (CDN). El SW v16 lo precachea para 100% offline tras la 1ª carga -->
+<link rel="stylesheet" href="https://pyscript.net/releases/2026.1.1/core.css" />
+<script type="module" src="https://pyscript.net/releases/2026.1.1/core.js"></script>
 </head>
+  
+<!-- Lógica de la app (JS) -->
+<script src="app.js"></script>
+
+<!-- PyScript: curvas J1/J2/J3 + puntos A/B -->
+<script type="py" src="report.py" config="pyscript.json" worker></script>
+
+<!-- Service Worker -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js');
+    });
+  }
+</script>
+
 <body>
 <header class="app-header">
   <div class="brand">
