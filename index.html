@@ -9,7 +9,7 @@
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#E5E7EB"/>
 
-  <!-- Estilos principales -->
+  <!-- Estilos -->
   <link rel="stylesheet" href="styles.css" />
 
   <!-- PyScript (CDN). Para 100% offline, el SW precachea estas rutas -->
@@ -68,7 +68,7 @@
           <div class="grid grid-4 mt-12">
             <div>
               <label>Slump (pulgadas)</label>
-              <input type="text" name="slumpIn" placeholder='Ej. 9 3/4" \n 10 1/4" \n 9.75"' required />
+              <input type="text" name="slumpIn" placeholder='Ej. 9 3/4" &#10; 10 1/4" &#10; 9.75"' required />
               <small class="hint">Acepta: 9 3/4", 10 1/4", 7/8", 9.75"</small>
             </div>
             <div>
@@ -198,6 +198,7 @@
               </tr>
             </thead>
             <tbody>
+              <!-- 0.25 h (15 min) -->
               <tr>
                 <td data-label="Tiempo"><b>0.25 h (15 min)</b></td>
                 <td data-label="10 lecturas (N)">
@@ -206,6 +207,7 @@
                 <td data-label="Promedio (N)"><input type="text" name="promA_15" readonly /></td>
                 <td data-label="MPa"><input type="text" name="mpaA_15" readonly /></td>
               </tr>
+              <!-- 0.50 h (30 min) -->
               <tr>
                 <td data-label="Tiempo"><b>0.50 h (30 min)</b></td>
                 <td data-label="10 lecturas (N)">
@@ -214,6 +216,7 @@
                 <td data-label="Promedio (N)"><input type="text" name="promA_30" readonly /></td>
                 <td data-label="MPa"><input type="text" name="mpaA_30" readonly /></td>
               </tr>
+              <!-- 0.75 h (45 min) -->
               <tr>
                 <td data-label="Tiempo"><b>0.75 h (45 min)</b></td>
                 <td data-label="10 lecturas (N)">
@@ -222,6 +225,7 @@
                 <td data-label="Promedio (N)"><input type="text" name="promA_45" readonly /></td>
                 <td data-label="MPa"><input type="text" name="mpaA_45" readonly /></td>
               </tr>
+              <!-- 1.00 h (60 min) -->
               <tr>
                 <td data-label="Tiempo"><b>1.00 h (60 min)</b></td>
                 <td data-label="10 lecturas (N)">
