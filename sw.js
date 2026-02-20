@@ -2,7 +2,7 @@
 // Estrategia: precache de app shell + cache-first con actualización perezosa.
 // Se añade soporte offline para PyScript (CDN) tras la primera carga online.
 
-const CACHE_NAME = 'ce-offline-v17';
+const CACHE_NAME = 'ce-offline-v18';
 
 // ⚠️ Asegúrate que estos archivos existan en producción.
 const ASSETS_LOCAL = [
