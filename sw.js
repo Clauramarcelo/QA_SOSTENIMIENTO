@@ -1,107 +1,102 @@
 // Service Worker - CE Offline (PWA)
-// Estrategia: precache de app shell + cache-first (same-origin) con actualización perezosa.
-// Sube la versión en cada despliegue para forzar actualización del caché.
+// Estrategia: precache de app shell + cache-first con actualización perezosa.
+// Se añade soporte offline para PyScript (CDN) tras la primera carga online.
 
 const CACHE_NAME = 'ce-offline-v16';
 
-// ⚠️ Asegúrate de que TODOS estos archivos existan en producción.
-// Si NO usas alguno (p.ej. pyscript.json), elimínalo del array.
-const ASSETS = [
+// ⚠️ Asegúrate que estos archivos existan en producción.
+const ASSETS_LOCAL = [
   './',
   './index.html',
   './styles.css',
   './app.js',
   './report.py',
   './manifest.json',
-  './pyscript.json',          // ← bórralo si no lo usas
+  './pyscript.json',
   './icons/icon-192.png',
   './icons/icon-512.png'
 ];
 
-// Precarga del app shell
+// PyScript (CDN) usado en index.html — precache como 'opaque' para offline.
+const PYSCRIPT_VERSION = '2026.1.1';
+const CDN_ASSETS = [
+  `https://pyscript.net/releases/${PYSCRIPT_VERSION}/core.css`,
+  `https://pyscript.net/releases/${PYSCRIPT_VERSION}/core.js`
+];
+const PYSCRIPT_ORIGIN = 'https://pyscript.net';
+
+async function cacheUrl(cache, url) {
+  try {
+    const isHTTP = /^https?:\/\//i.test(url);
+    const isCross = isHTTP && new URL(url).origin !== self.location.origin;
+    const fetchOpts = isCross
+      ? { mode: 'no-cors', cache: 'no-cache' } // respuestas 'opaque' aceptables
+      : { cache: 'no-cache' };
+
+    const resp = await fetch(url, fetchOpts);
+    if (resp && (resp.ok || resp.type === 'opaque')) {
+      await cache.put(url, resp);
+    }
+  } catch (e) {
+    // no abortar por un asset faltante
+  }
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
-    // addAll puede fallar si alguno no existe; lo hacemos robusto:
-    await Promise.allSettled(ASSETS.map(async (url) => {
-      try {
-        const resp = await fetch(url, { cache: 'no-cache' });
-        // Sólo cachea OK 200/opaques aceptables para same-origin
-        if (resp && (resp.ok || resp.type === 'opaque')) {
-          await cache.put(url, resp);
-        }
-      } catch (e) {
-        // Silencioso: no abortar instalación por un asset faltante
-        // console.warn('[SW] No se pudo precachear:', url, e);
-      }
-    }));
+    await Promise.allSettled([...ASSETS_LOCAL, ...CDN_ASSETS].map((u) => cacheUrl(cache, u)));
   })());
   self.skipWaiting();
 });
 
-// Limpieza de versiones antiguas
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(
-      keys
-        .filter(k => k !== CACHE_NAME)
-        .map(k => caches.delete(k))
-    );
+    await Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)));
   })());
   self.clients.claim();
 });
 
-// Estrategia de respuesta
 self.addEventListener('fetch', (event) => {
   const req = event.request;
+  const url = new URL(req.url);
 
-  // App-shell para navegaciones: si no hay red, sirve index.html
+  // Navegaciones: fallback al shell cuando no hay red
   if (req.mode === 'navigate') {
     event.respondWith((async () => {
-      try {
-        const net = await fetch(req);
-        return net;
-      } catch (_) {
+      try { return await fetch(req); }
+      catch {
         const cache = await caches.open(CACHE_NAME);
-        const cached = await cache.match('./index.html');
-        return cached || new Response('Offline', { status: 503, statusText: 'Offline' });
+        return (await cache.match('./index.html')) || new Response('Offline', { status: 503 });
       }
     })());
     return;
   }
 
-  // Para otros GET del mismo origen: cache-first con actualización perezosa
-  if (req.method === 'GET' && new URL(req.url).origin === self.location.origin) {
+  const sameOrigin = url.origin === self.location.origin;
+  const isPyScriptCDN = url.origin === PYSCRIPT_ORIGIN;
+
+  if (req.method === 'GET' && (sameOrigin || isPyScriptCDN)) {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE_NAME);
       const cached = await cache.match(req);
       if (cached) {
-        // Actualiza en segundo plano (no bloquea la respuesta)
         event.waitUntil((async () => {
           try {
-            const fresh = await fetch(req, { cache: 'no-cache' });
-            if (fresh && fresh.ok) await cache.put(req, fresh);
-          } catch (_) { /* sin red o error */ }
+            const fresh = await fetch(req, sameOrigin ? { cache: 'no-cache' } : { mode: 'no-cors', cache: 'no-cache' });
+            if (fresh && (fresh.ok || fresh.type === 'opaque')) await cache.put(req, fresh);
+          } catch {}
         })());
         return cached;
       }
-      // Si no está cacheado, intenta red y guarda
       try {
-        const resp = await fetch(req);
-        if (resp && resp.ok) {
-          // Evita cachear POST/PUT o orígenes cruzados
-          await cache.put(req, resp.clone());
-        }
+        const resp = await fetch(req, sameOrigin ? undefined : { mode: 'no-cors', cache: 'no-cache' });
+        if (resp && (resp.ok || resp.type === 'opaque')) await cache.put(req, resp.clone());
         return resp;
-      } catch (_) {
-        // Último recurso: no hay cache ni red
-        return new Response('Offline', { status: 503, statusText: 'Offline' });
+      } catch {
+        return new Response('Offline', { status: 503 });
       }
     })());
-    return;
   }
-
-  // Peticiones a otros orígenes (CDNs, APIs, etc.): pasa directo
-  // (Si deseas, aquí puedes agregar una estrategia específica para PyScript CDN)
 });
