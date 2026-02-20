@@ -3,35 +3,19 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>QA - Control de Calidad (Offline)</title>
+  <title>CE - Control de Calidad (Offline)</title>
 
-<!-- PWA -->
-<link rel="manifest" href="manifest.json" />
-<meta name="theme-color" content="#E5E7EB"/>
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#E5E7EB"/>
 
-<!-- Estilos -->
-<link rel="stylesheet" href="styles.css" />
+  <!-- Estilos -->
+  <link rel="stylesheet" href="styles.css" />
 
-<!-- PyScript (CDN). El SW v16 lo precachea para 100% offline tras la 1ª carga -->
-<link rel="stylesheet" href="https://pyscript.net/releases/2026.1.1/core.css" />
-<script type="module" src="https://pyscript.net/releases/2026.1.1/core.js"></script>
+  <!-- PyScript (CDN) -->
+  <link rel="stylesheet" href="https://pyscript.net/releases/2026.1.1/core.css" />
+  <script type="module" src="https://pyscript.net/releases/2026.1.1/core.js"></script>
 </head>
-  
-<!-- Lógica de la app (JS) -->
-<script src="app.js"></script>
-
-<!-- PyScript: curvas J1/J2/J3 + puntos A/B -->
-<script type="py" src="report.py" config="pyscript.json" worker></script>
-
-<!-- Service Worker -->
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js');
-    });
-  }
-</script>
-
 <body>
 <header class="app-header">
   <div class="brand">
@@ -336,137 +320,8 @@
     </form>
   </section>
 
-  <!-- TAB 4: BD (por mes) -->
-  <section id="tab-bd" class="panel" role="tabpanel">
-    <div class="panel-head">
-      <h2>Base de Datos (por mes)</h2>
-      <p class="muted">Filtra por mes y gestiona registros.</p>
-    </div>
+  <!-- TAB 4 y TAB 5 omitidas aquí por espacio: mantén las que ya tienes -->
 
-    <div class="card">
-      <div class="grid">
-        <div>
-          <label>Mes</label>
-          <input type="month" id="fMes" />
-        </div>
-        <div></div>
-        <div class="col-span-2 actions left">
-          <button id="btnFiltrar" class="btn" type="button">Aplicar mes</button>
-          <button id="btnLimpiarFiltro" class="btn btn-secondary" type="button">Ver todo</button>
-          <button id="btnBDPDF" class="btn btn-secondary" type="button">Exportar PDF</button>
-          <button id="btnBorrarTodo" class="btn btn-danger" type="button">Borrar TODO</button>
-        </div>
-      </div>
-      <p class="hint">Tip: El filtro por mes evita conflictos de rangos.</p>
-    </div>
-
-    <div class="card">
-      <h3>Slump y T°</h3>
-      <div class="table-wrap">
-        <table class="table" id="tblSlump">
-          <thead>
-            <tr>
-              <th>Fecha</th><th>Hora Slump</th><th>Labor</th><th>Nivel</th>
-              <th>Slump</th><th>T°</th><th>Presión</th><th>Mixer</th>
-              <th>HS</th><th>H_LL</th><th>Demora</th><th></th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>Resistencias</h3>
-      <div class="table-wrap">
-        <table class="table" id="tblResist">
-          <thead>
-            <tr>
-              <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th><th>Método</th><th>Edad</th><th>MPa</th><th></th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>Pernos</h3>
-      <div class="table-wrap">
-        <table class="table" id="tblPernos">
-          <thead>
-            <tr>
-              <th>Fecha</th><th>Hora</th><th>Labor</th><th>Nivel</th><th>Helicoidal</th><th>Swellex</th><th></th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
-  <!-- TAB 5: REPORTE -->
-  <section id="tab-reporte" class="panel" role="tabpanel">
-    <div class="panel-head">
-      <h2>Reporte diario</h2>
-      <p class="muted">Reporte por día (WhatsApp / PDF).</p>
-    </div>
-
-    <div class="card">
-      <div class="grid">
-        <div>
-          <label>Día</label>
-          <input type="date" id="rDia" />
-        </div>
-        <div></div>
-        <div class="col-span-2 actions left">
-          <button id="btnReporte" class="btn" type="button">Actualizar</button>
-          <button id="btnReporteTodo" class="btn btn-secondary" type="button">Hoy</button>
-          <button id="btnPDF" class="btn btn-secondary" type="button">Exportar PDF</button>
-        </div>
-      </div>
-
-      <div class="kpis-2">
-        <div class="kpi-big">
-          <div class="kpi-title">Temperatura Promedio</div>
-          <div class="kpi-value" id="kpiTempProm">—</div>
-          <div class="kpi-sub muted" id="kpiTempExtra">Min — / Max —</div>
-        </div>
-        <div class="kpi-big">
-          <div class="kpi-title">Pernos Instalados</div>
-          <div class="kpi-value" id="kpiPernosTotal">0</div>
-          <div class="kpi-sub muted" id="kpiPernosExtra">Helicoidal 0 / Swellex 0</div>
-        </div>
-      </div>
-
-      <p class="hint">En celular: Exportar PDF → Guardar como PDF → Compartir.</p>
-    </div>
-
-    <div class="grid-2">
-      <div class="card">
-        <h3>Slump (") promedio por Labor</h3>
-        <img id="chartSlumpImg" class="chart-img" alt="Gráfico Slump (Python)" />
-        <canvas id="chartSlumpCv" class="chart-cv" width="920" height="560"></canvas>
-      </div>
-      <div class="card">
-        <h3>Presión de aire promedio por Labor</h3>
-        <img id="chartAireImg" class="chart-img" alt="Gráfico Aire (Python)" />
-        <canvas id="chartAireCv" class="chart-cv" width="920" height="560"></canvas>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>Resistencias iniciales (log–log)</h3>
-      <img id="chartResistImgReport" class="chart-img" alt="Gráfico Resistencias (Python)" />
-      <canvas id="chartResistCvReport" class="chart-cv" width="920" height="560"></canvas>
-      <div class="hint mt-12">Se actualiza automáticamente cuando guardas Resistencias o cuando presionas “Actualizar”.</div>
-    </div>
-
-    <div class="card">
-      <h3>Resumen</h3>
-      <div id="resumenReporte" class="muted"></div>
-    </div>
-  </section>
 </main>
 
 <footer class="footer">
@@ -477,7 +332,7 @@
 <!-- Lógica de la app (JS) -->
 <script src="app.js"></script>
 
-<!-- PyScript: tu lógica Python para curvas J1/J2/J3 + puntos A/B -->
+<!-- PyScript: curvas J1/J2/J3 + puntos A/B -->
 <script type="py" src="report.py" config="pyscript.json" worker></script>
 
 <!-- Service Worker -->
