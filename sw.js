@@ -1,6 +1,6 @@
-// Service Worker - CE Offline (v18)
+// Service Worker - CE Offline (v19)
 // App shell: cache-first (mismo origen) + PyScript CDN: network-first (CORS).
-const CACHE_NAME = 'ce-offline-v18';
+const CACHE_NAME = 'ce-offline-v19';
 
 const ASSETS_LOCAL = [
   './',
